@@ -32,7 +32,7 @@ use std::thread;
 use std::sync::{mpsc::Receiver, Mutex, Once, RwLock};
 
 /// Builds a display for tests.
-pub fn build_display() -> WindowedDisplay {
+pub fn build_display() -> Display<WindowSurface> {
 
     // Thread communication
     static mut EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<()>>> = RwLock::new(None);
@@ -40,6 +40,7 @@ pub fn build_display() -> WindowedDisplay {
     // Initialization
     static mut INIT_EVENT_LOOP: Once = Once::new();
     static mut SEND_PROXY: Once = Once::new();
+    static mut WINDOW_CONFIG: RwLock<Option<(Window, Config)>> = RwLock::new(None);
 
     // SAFETY
     // This is the first code to run when any test thread calls build_display.
@@ -65,24 +66,25 @@ pub fn build_display() -> WindowedDisplay {
 
                 event_loop.run(move |event, event_loop, _| {
                     match event {
-                        Event::UserEvent(_) => {
-                            let window_builder = WindowBuilder::new().with_visible(false);
-
-                            let config_template_builder = ConfigTemplateBuilder::new();
-                            let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
-                            let (window, gl_config) = display_builder
-                                .build(&event_loop, config_template_builder, |mut configs| {
-                                    // Just use the first configuration since we don't have any special preferences here
-                                    configs.next().unwrap()
-                                })
-                                .unwrap();
-
-                            sender.send((window.unwrap(), gl_config)).unwrap();
-                        }
+                        //Event::UserEvent(_) => {
+                        //    sender.send((window.unwrap(), gl_config)).unwrap();
+                        //}
                         _ => {
                             // Send event loop proxy ASAP
                             SEND_PROXY.call_once(|| {
-                                ots.send(proxy.clone()).unwrap();
+                                let window_builder = WindowBuilder::new().with_visible(false);
+
+                                let config_template_builder = ConfigTemplateBuilder::new();
+                                let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
+                                let (window, config) = display_builder
+                                    .build(&event_loop, config_template_builder, |mut configs| {
+                                        // Just use the first configuration since we don't have any special preferences here
+                                        configs.next().unwrap()
+                                    })
+                                    .unwrap();
+                                let window = window.unwrap();
+
+                                ots.send((proxy.clone(), (window, config))).unwrap();
                             });
                         }
                     }
@@ -90,28 +92,33 @@ pub fn build_display() -> WindowedDisplay {
             }).unwrap();
 
             // `recv` will block until any non-user event is sent
-            let event_loop_proxy = otr.recv().unwrap();
+            let (event_loop_proxy, window_config) = otr.recv().unwrap();
 
             // Write to the static mut variables while still in `call_once`'s closure
             *EVENT_LOOP_PROXY.write().unwrap() = Some(event_loop_proxy);
 
             *WINDOW_RECEIVER.lock().unwrap() = Some(receiver);
+
+            *WINDOW_CONFIG.write().unwrap() = Some(window_config);
         });
     }
 
-    // Tell event loop to create a window and config for creating a display
-    let guard = unsafe {
-        EVENT_LOOP_PROXY.read().unwrap()
-    };
-    guard.as_ref().unwrap().send_event(()).unwrap();
+//    // Tell event loop to create a window and config for creating a display
+//    let guard = unsafe {
+//        EVENT_LOOP_PROXY.read().unwrap()
+//    };
+//    guard.as_ref().unwrap().send_event(()).unwrap();
+//
+//    // Receive said window and config one thread at a time
+//    let (window, gl_config) = {
+//        let guard = unsafe {
+//            WINDOW_RECEIVER.lock().unwrap()
+//        };
+//        guard.as_ref().unwrap().recv().unwrap()
+//    };
 
-    // Receive said window and config one thread at a time
-    let (window, gl_config) = {
-        let guard = unsafe {
-            WINDOW_RECEIVER.lock().unwrap()
-        };
-        guard.as_ref().unwrap().recv().unwrap()
-    };
+    let guard = unsafe { WINDOW_CONFIG.read().unwrap() };
+    let (window, gl_config) = guard.as_ref().unwrap();
 
     // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
     // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
@@ -136,30 +143,7 @@ pub fn build_display() -> WindowedDisplay {
     let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
     let current_context = not_current_gl_context.make_current(&surface).unwrap();
 
-    let display = Display::from_context_surface(current_context, surface).unwrap();
-
-    WindowedDisplay { window, display }
-}
-
-// Keep the Window alive via ownership until the test completes
-pub struct WindowedDisplay {
-    window: Window,
-    display: Display<WindowSurface>,
-}
-
-// `Deref` abuse but private and localised to the tests
-impl std::ops::Deref for WindowedDisplay {
-    type Target = Display<WindowSurface>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.display
-    }
-}
-
-impl Facade for WindowedDisplay {
-    fn get_context(&self) -> &std::rc::Rc<glium::backend::Context> {
-        self.display.get_context()
-    }
+    Display::from_context_surface(current_context, surface).unwrap()
 }
 
 
