@@ -38,7 +38,7 @@ jobs:
     - name: Set up OpenGL
       uses: openrndr/setup-opengl@v1.1
       with:
-        toolchain: ${{ matrix.toolchain }}
+        tool: ${{ matrix.toolchain }}
         override: true
     - name: Run cargo tests
       env:
