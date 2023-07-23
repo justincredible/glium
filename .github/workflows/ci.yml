@@ -29,12 +29,19 @@ jobs:
       env:
         RUSTFLAGS: -D warnings
       run: |
-         cargo test --all --all-targets
+         cargo test --all --all-targets --no-run
     - name: Run cargo doc
       env:
         RUSTFLAGS: -D warnings
       run: |
         cargo doc --all --all-features
+    - name: Set up OpenGL
+      uses: openrndr/setup-opengl@v1.1
+    - name: Run cargo tests
+      env:
+        RUSTFLAGS: -D warnings
+      run: |
+         cargo test --tests
   book:
     runs-on: ubuntu-latest
     steps:
