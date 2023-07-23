@@ -29,7 +29,7 @@ jobs:
       env:
         RUSTFLAGS: -D warnings
       run: |
-         cargo test --all --all-targets --no-run
+         cargo test --all --all-targets
     - name: Run cargo doc
       env:
         RUSTFLAGS: -D warnings
