@@ -37,6 +37,9 @@ jobs:
         cargo doc --all --all-features
     - name: Set up OpenGL
       uses: openrndr/setup-opengl@v1.1
+      with:
+        toolchain: ${{ matrix.toolchain }}
+        override: true
     - name: Run cargo tests
       env:
         RUSTFLAGS: -D warnings
