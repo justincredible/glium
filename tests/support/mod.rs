@@ -12,7 +12,7 @@ use glium::index::PrimitiveType;
 use std::num::NonZeroU32;
 use winit::event::Event;
 use winit::event_loop::{EventLoopBuilder, EventLoopProxy};
-use winit::window::WindowBuilder;
+use winit::window::{Window, WindowBuilder, WindowId};
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{ContextAttributesBuilder};
 use glutin::display::GetGlDisplay;
@@ -41,6 +41,7 @@ pub fn build_display() -> Display<WindowSurface> {
     // Initialization
     static mut INIT_EVENT_LOOP: Once = Once::new();
     static mut SEND_PROXY: Once = Once::new();
+    static mut WINDOWS: Option<HashMap<WindowId, Window>> = None;
 
     // SAFETY
     // This is the first code to run when any test thread calls build_display.
@@ -63,7 +64,8 @@ pub fn build_display() -> Display<WindowSurface> {
                     EventLoopBuilder::new().build()
                 };
                 let proxy = event_loop.create_proxy();
-                let mut windows = HashMap::new();
+                // set up variable before it is used
+                WINDOWS = Some(HashMap::new());
 
                 event_loop.run(move |event, event_loop, _| {
                     match event {
@@ -82,7 +84,8 @@ pub fn build_display() -> Display<WindowSurface> {
                             let key = window.id();
 
                             let handle = window.raw_window_handle();
-                            windows.insert(key, window);
+                            // safety: the event loop is a single thread
+                            WINDOWS.as_mut().unwrap().insert(key, window);
                             sender.send((handle.into(), gl_config)).unwrap();
                         }
                         _ => {
