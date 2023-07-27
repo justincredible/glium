@@ -167,6 +167,7 @@ impl From<RawWindowHandle> for SendableHandle {
 
 // SAFETY
 // requires From impl to be kept in sync with winit
+// `!Send` variants cause a runtime panic
 unsafe impl Send for SendableHandle {}
 
 
