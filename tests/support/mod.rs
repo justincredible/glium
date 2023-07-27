@@ -12,14 +12,14 @@ use glium::index::PrimitiveType;
 use std::num::NonZeroU32;
 use winit::event::Event;
 use winit::event_loop::{EventLoopBuilder, EventLoopProxy};
-use winit::window::{Window, WindowBuilder};
+use winit::window::WindowBuilder;
 use glutin::config::{Config, ConfigTemplateBuilder};
 use glutin::context::{ContextAttributesBuilder};
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin::surface::{SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 // There is a Wayland version of this extension trait but the X11 version also works on Wayland
 #[cfg(unix)]
@@ -27,16 +27,17 @@ use winit::platform::x11::EventLoopBuilderExtX11;
 #[cfg(windows)]
 use winit::platform::windows::EventLoopBuilderExtWindows;
 
+use std::collections::HashMap;
 use std::env;
 use std::thread;
 use std::sync::{mpsc::Receiver, Mutex, Once, RwLock};
 
 /// Builds a display for tests.
-pub fn build_display() -> WindowedDisplay {
+pub fn build_display() -> Display<WindowSurface> {
 
     // Thread communication
     static mut EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<()>>> = RwLock::new(None);
-    static mut WINDOW_RECEIVER: Mutex<Option<Receiver<(Window, Config)>>> = Mutex::new(None);
+    static mut WINDOW_RECEIVER: Mutex<Option<Receiver<(SendableHandle, Config)>>> = Mutex::new(None);
     // Initialization
     static mut INIT_EVENT_LOOP: Once = Once::new();
     static mut SEND_PROXY: Once = Once::new();
@@ -62,6 +63,7 @@ pub fn build_display() -> WindowedDisplay {
                     EventLoopBuilder::new().build()
                 };
                 let proxy = event_loop.create_proxy();
+                let mut windows = HashMap::new();
 
                 event_loop.run(move |event, event_loop, _| {
                     match event {
@@ -76,8 +78,12 @@ pub fn build_display() -> WindowedDisplay {
                                     configs.next().unwrap()
                                 })
                                 .unwrap();
+                            let window = window.unwrap();
+                            let key = window.id();
 
-                            sender.send((window.unwrap(), gl_config)).unwrap();
+                            let handle = window.raw_window_handle();
+                            windows.insert(key, window);
+                            sender.send((handle.into(), gl_config)).unwrap();
                         }
                         _ => {
                             // Send event loop proxy ASAP
@@ -136,31 +142,31 @@ pub fn build_display() -> WindowedDisplay {
     let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
     let current_context = not_current_gl_context.make_current(&surface).unwrap();
 
-    let display = Display::from_context_surface(current_context, surface).unwrap();
-
-    WindowedDisplay { window, display }
+    Display::from_context_surface(current_context, surface).unwrap()
 }
 
-// Keep the Window alive via ownership until the test completes
-pub struct WindowedDisplay {
-    window: Window,
-    display: Display<WindowSurface>,
-}
+#[derive(Debug)]
+struct SendableHandle(RawWindowHandle);
 
-// `Deref` abuse but private and localised to the tests
-impl std::ops::Deref for WindowedDisplay {
-    type Target = Display<WindowSurface>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.display
+impl SendableHandle {
+    pub fn raw_window_handle(&self) -> RawWindowHandle {
+        self.0.clone()
     }
 }
 
-impl Facade for WindowedDisplay {
-    fn get_context(&self) -> &std::rc::Rc<glium::backend::Context> {
-        self.display.get_context()
+impl From<RawWindowHandle> for SendableHandle {
+    fn from(handle: RawWindowHandle) -> Self {
+        match handle {
+            a@RawWindowHandle::Xlib(_) => SendableHandle(a),
+            // `!Send` or untested variants
+            _ => panic!("Unsupported"),
+        }
     }
 }
+
+// SAFETY
+// requires From impl to be kept in sync with winit
+unsafe impl Send for SendableHandle {}
 
 
 /// Rebuilds an existing display.
