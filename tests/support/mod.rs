@@ -41,7 +41,6 @@ pub fn build_display() -> Display<WindowSurface> {
     // Initialization
     static mut INIT_EVENT_LOOP: Once = Once::new();
     static mut SEND_PROXY: Once = Once::new();
-    static mut WINDOWS: Option<HashMap<WindowId, Window>> = None;
 
     // SAFETY
     // This is the first code to run when any test thread calls build_display.
@@ -57,6 +56,8 @@ pub fn build_display() -> Display<WindowSurface> {
 
             let builder = thread::Builder::new().name("event_loop".into());
             builder.spawn(|| {
+
+                static mut WINDOWS: Option<HashMap<WindowId, Window>> = None;
 
                 let event_loop = if cfg!(unix) || cfg!(windows) {
                     EventLoopBuilder::new().with_any_thread(true).build()
