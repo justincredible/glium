@@ -157,8 +157,9 @@ impl SendableHandle {
 impl From<RawWindowHandle> for SendableHandle {
     fn from(handle: RawWindowHandle) -> Self {
         match handle {
-            a@RawWindowHandle::Xlib(_) => SendableHandle(a),
-            // `!Send` or untested variants
+            handle@(RawWindowHandle::Xlib(_) | RawWindowHandle::Xcb(_) | RawWindowHandle::Web(_) | RawWindowHandle::Drm(_))
+               => SendableHandle(handle),
+            // `!Send` variants
             _ => panic!("Unsupported"),
         }
     }
