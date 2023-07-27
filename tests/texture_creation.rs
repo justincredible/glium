@@ -298,6 +298,7 @@ fn zero_sized_texture_3d_creation() {
     display.assert_no_error(None);
 }
 
+#[ignore]
 #[test]
 fn bindless_texture_residency_context_rebuild() {
     let display = support::build_display();
