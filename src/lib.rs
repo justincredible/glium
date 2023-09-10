@@ -784,12 +784,12 @@ pub trait Surface {
     fn clear(&mut self, rect: Option<&Rect>, color: Option<(f32, f32, f32, f32)>, color_srgb: bool,
              depth: Option<f32>, stencil: Option<i32>);
 
-    /// Clears the color attachment of the target.
+    /// Clears the color attachment of the target. Converts the color to sRGB when applicable.
     fn clear_color(&mut self, red: f32, green: f32, blue: f32, alpha: f32) {
         self.clear(None, Some((red, green, blue, alpha)), false, None, None);
     }
 
-    /// Clears the color attachment of the target. The color is in sRGB format.
+    /// Clears the color attachment of the target. The color is expected to match the target's color space.
     fn clear_color_srgb(&mut self, red: f32, green: f32, blue: f32, alpha: f32) {
         self.clear(None, Some((red, green, blue, alpha)), true, None, None);
     }
