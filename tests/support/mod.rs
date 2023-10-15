@@ -59,16 +59,22 @@ unsafe fn initialize_event_loop() {
             event_loop.run(move |event, event_loop, _| {
                 match event {
                     Event::UserEvent(_) => {
-                        let window_builder = WindowBuilder::new().with_visible(false);
+                        let (window, gl_config) = loop {
+                            let window_builder = WindowBuilder::new().with_visible(false);
 
-                        let config_template_builder = ConfigTemplateBuilder::new();
-                        let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
-                        let (window, gl_config) = display_builder
-                            .build(&event_loop, config_template_builder, |mut configs| {
-                                // Just use the first configuration since we don't have any special preferences here
-                                configs.next().unwrap()
-                            })
-                            .unwrap();
+                            let config_template_builder = ConfigTemplateBuilder::new();
+                            let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
+                            let result = display_builder
+                                .build(&event_loop, config_template_builder, |mut configs| {
+                                    configs.next().unwrap()
+                                });
+
+                            if let Err(e) = result {
+                                eprintln!("{:?}", e);
+                            } else {
+                                break result.unwrap();
+                            }
+                        };
 
                         sender.send((window.unwrap(), gl_config)).unwrap();
                     }
@@ -173,12 +179,17 @@ pub fn build_display() -> WindowedDisplay {
         );
 
         // Now we can create our surface, use it to make our context current and finally create our display
-        let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
-        let result = not_current_gl_context.make_current(&surface);
-        if let Err(e) = result {
+        let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs) };
+
+        if let Err(e) = surface {
             eprintln!("{:?}", e);
         } else {
-            break (result.unwrap(), surface);
+            let context = not_current_gl_context.make_current(&surface.as_ref().unwrap());
+            if let Err(e) = context {
+                eprintln!("{:?}", e);
+            } else {
+                break (context.unwrap(), surface.unwrap());
+            }
         }
     };
 
