@@ -122,42 +122,65 @@ pub fn build_display() -> WindowedDisplay {
     // The static mut variables are only ever read after initialization with synchronization.
     unsafe { initialize_event_loop(); }
 
-    // Tell event loop to create a window and config for creating a display
-    let guard = unsafe {
-        EVENT_LOOP_PROXY.read().unwrap()
-    };
-    guard.as_ref().unwrap().send_event(()).unwrap();
+    let (window, gl_config) = loop {
+        // Tell event loop to create a window and config for creating a display
+        let guard = unsafe {
+            EVENT_LOOP_PROXY.read().unwrap()
+        };
+        let mut result = guard.as_ref().unwrap().send_event(());
+        while let Err(e) = result {
+            //eprintln!("{:?}", e);
+            result = guard.as_ref().unwrap().send_event(());
+        }
 
-    // Receive said window and config one thread at a time
-    let (window, gl_config) = {
+        // Receive said window and config one thread at a time
         let guard = unsafe {
             WINDOW_RECEIVER.lock().unwrap()
         };
-        guard.as_ref().unwrap().recv().unwrap()
+        let result = guard.as_ref().unwrap().recv();
+        if let Err(e) = result {
+            //eprintln!("{:?}", e);
+        } else {
+            break result.unwrap();
+        }
     };
 
-    // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
-    // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
-    // If you depend on features available in modern OpenGL Versions you need to request a specific, modern, version. Otherwise things will very likely fail.
-    let version = parse_version();
-    let raw_window_handle = window.raw_window_handle();
-    let context_attributes = ContextAttributesBuilder::new()
-        .with_context_api(version)
-        .build(Some(raw_window_handle));
+    let (current_context, surface) = loop {
+        // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
+        // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
+        // If you depend on features available in modern OpenGL Versions you need to request a specific, modern, version. Otherwise things will very likely fail.
+        let version = parse_version();
+        let raw_window_handle = window.raw_window_handle();
+        let context_attributes = ContextAttributesBuilder::new()
+            .with_context_api(version)
+            .build(Some(raw_window_handle));
 
-    let not_current_gl_context = unsafe {
-        gl_config.display().create_context(&gl_config, &context_attributes).unwrap()
+        let not_current_gl_context = unsafe {
+            loop {
+                let result = gl_config.display().create_context(&gl_config, &context_attributes);
+                if let Err(e) = result {
+                    eprintln!("{:?}", e);
+                } else {
+                    break result.unwrap();
+                }
+            }
+        };
+
+        let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+            raw_window_handle,
+            NonZeroU32::new(800).unwrap(),
+            NonZeroU32::new(600).unwrap(),
+        );
+
+        // Now we can create our surface, use it to make our context current and finally create our display
+        let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
+        let result = not_current_gl_context.make_current(&surface);
+        if let Err(e) = result {
+            eprintln!("{:?}", e);
+        } else {
+            break (result.unwrap(), surface);
+        }
     };
-
-    let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-        raw_window_handle,
-        NonZeroU32::new(800).unwrap(),
-        NonZeroU32::new(600).unwrap(),
-    );
-
-    // Now we can create our surface, use it to make our context current and finally create our display
-    let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
-    let current_context = not_current_gl_context.make_current(&surface).unwrap();
 
     let display = Display::from_context_surface(current_context, surface).unwrap();
 

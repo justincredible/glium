@@ -34,7 +34,7 @@ vk_interop = [] # used for texture import from Vulkan
 simple_window_builder = ["glutin", "glutin-winit", "winit", "raw-window-handle"] # used in the tutorial
 
 [dependencies.glutin]
-version = "0.30.4"
+version = "0.30.10"
 features = []
 optional = true
 default-features = false
