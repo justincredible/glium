@@ -2,3 +2,9 @@
 /Cargo.lock
 /book/_book
 /.vscode
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target

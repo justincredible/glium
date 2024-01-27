@@ -11,6 +11,7 @@ use glium::index::PrimitiveType;
 
 use std::num::NonZeroU32;
 use winit::event_loop::{EventLoopBuilder};
+use winit::platform::x11::EventLoopBuilderExtX11;
 use winit::window::WindowBuilder;
 use glutin::config::ConfigTemplateBuilder;
 use glutin::context::{ContextAttributesBuilder};
@@ -25,7 +26,7 @@ use std::env;
 /// Builds a display for tests.
 pub fn build_display() -> Display<WindowSurface> {
     let version = parse_version();
-    let event_loop = EventLoopBuilder::new().build();
+    let event_loop = EventLoopBuilder::new().with_any_thread(true).build();
     let window_builder = WindowBuilder::new().with_visible(false);
     let config_template_builder = ConfigTemplateBuilder::new();
     let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
