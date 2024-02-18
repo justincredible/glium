@@ -69,6 +69,8 @@ struct Application {
     pub vertex_buffer: glium::VertexBuffer<Vertex>,
     pub linear_rgb_program: glium::Program,
     pub srgb_program: glium::Program,
+    pub texture_2d: glium::Texture2d,
+    pub srgb_texture_2d: glium::texture::SrgbTexture2d,
 }
 
 impl ApplicationContext for Application {
@@ -92,16 +94,19 @@ impl ApplicationContext for Application {
         }
         let vertex_buffer = { glium::VertexBuffer::new(display, &vertices).unwrap() };
 
+        let texture_2d = glium::Texture2d::empty(display, 800, 600).unwrap();
+        let srgb_texture_2d = glium::texture::SrgbTexture2d::empty(display, 800, 600).unwrap();
+
         Self {
             vertex_buffer,
             linear_rgb_program: create_program(display, false),
             srgb_program: create_program(display, true),
+            texture_2d,
+            srgb_texture_2d,
         }
     }
 
     fn draw_frame(&mut self, display: &Display<WindowSurface>) {
-        let mut frame = display.draw();
-
         // Draw band of linear RGB gradient at the top of the window
         let linear_rgb_uniforms = uniform! {
             matrix: [
@@ -121,27 +126,107 @@ impl ApplicationContext for Application {
             ]
         };
 
-        // Clear the window with some non-grey color, to make the gradients stand out a bit
-        frame.clear_color(0.1, 0.3, 0.1, 1.0);
-        
-        frame
-            .draw(
-                &self.vertex_buffer,
-                NoIndices(PrimitiveType::TriangleStrip),
-                &self.linear_rgb_program,
-                &linear_rgb_uniforms,
-                &Default::default(),
-            )
-            .unwrap();
-        frame
-            .draw(
-                &self.vertex_buffer,
-                NoIndices(PrimitiveType::TriangleStrip),
-                &self.srgb_program,
-                &srgb_uniforms,
-                &Default::default(),
-            )
-            .unwrap();
+        // Draw the gradient with each program on a non-sRGB texture
+        let mut framebuffer_linear = glium::framebuffer::SimpleFrameBuffer::new(
+            display,
+            &self.texture_2d
+        )
+        .unwrap();
+        framebuffer_linear.clear(None, Some((0.1, 0.3, 0.1, 1.0)), false, None, None); // clear_color
+        framebuffer_linear.draw(
+            &self.vertex_buffer,
+            NoIndices(PrimitiveType::TriangleStrip),
+            &self.linear_rgb_program,
+            &linear_rgb_uniforms,
+            &Default::default(),
+        )
+        .unwrap();
+        framebuffer_linear.draw(
+            &self.vertex_buffer,
+            NoIndices(PrimitiveType::TriangleStrip),
+            &self.srgb_program,
+            &srgb_uniforms,
+            &Default::default(),
+        )
+        .unwrap();
+        let mut framebuffer_srgb = glium::framebuffer::SimpleFrameBuffer::new(
+            display,
+            &self.srgb_texture_2d
+        )
+        .unwrap();
+        // Draw the gradients again on an sRGB texture
+        framebuffer_srgb.clear(None, Some((0.1, 0.3, 0.1, 1.0)), true, None, None); // clear_color_srgb
+        framebuffer_srgb.draw(
+            &self.vertex_buffer,
+            NoIndices(PrimitiveType::TriangleStrip),
+            &self.linear_rgb_program,
+            &linear_rgb_uniforms,
+            &Default::default(),
+        )
+        .unwrap();
+        framebuffer_srgb.draw(
+            &self.vertex_buffer,
+            NoIndices(PrimitiveType::TriangleStrip),
+            &self.srgb_program,
+            &srgb_uniforms,
+            &Default::default(),
+        )
+        .unwrap();
+
+        // Blit both textures twice, toggling color correction
+        let mut frame = display.draw();
+        frame.clear(None, None, false, None, None);
+        let rect = glium::Rect {
+            left: 0,
+            bottom: 0,
+            width: 800,
+            height: 600,
+        };
+        frame.blit_from_simple_framebuffer(
+            &framebuffer_linear,
+            &rect,
+            &glium::BlitTarget {
+                left: 0,
+                bottom: 0,
+                width: 400,
+                height: 300,
+            },
+            glium::uniforms::MagnifySamplerFilter::Linear,
+        );
+        frame.blit_from_simple_framebuffer(
+            &framebuffer_srgb,
+            &rect,
+            &glium::BlitTarget {
+                left: 400,
+                bottom: 0,
+                width: 400,
+                height: 300,
+            },
+            glium::uniforms::MagnifySamplerFilter::Linear,
+        );
+        frame.clear(None, None, true, None, None);
+        frame.blit_from_simple_framebuffer(
+            &framebuffer_linear,
+            &rect,
+            &glium::BlitTarget {
+                left: 0,
+                bottom: 300,
+                width: 400,
+                height: 300,
+            },
+            glium::uniforms::MagnifySamplerFilter::Linear,
+        );
+        frame.blit_from_simple_framebuffer(
+            &framebuffer_srgb,
+            &rect,
+            &glium::BlitTarget {
+                left: 400,
+                bottom: 300,
+                width: 400,
+                height: 300,
+            },
+            glium::uniforms::MagnifySamplerFilter::Linear,
+        );
         frame.finish().unwrap();
     }
 }
