@@ -12,7 +12,7 @@ use glutin::context::Version;
 use glutin::prelude::*;
 use glutin::display::GetGlDisplay;
 use glutin::surface::WindowSurface;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::HasWindowHandle;
 
 fn main() {
     // We start by creating the main EventLoop
@@ -33,7 +33,7 @@ fn main() {
     let window = window.unwrap();
 
     // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
-    let raw_window_handle = window.raw_window_handle();
+    let raw_window_handle = window.window_handle().unwrap().as_raw();
     // We need a 4.6 context for SPIR-V support
     let context_attributes = glutin::context::ContextAttributesBuilder::new()
         .with_context_api(glutin::context::ContextApi::OpenGl(Some(Version::new(4, 6))))

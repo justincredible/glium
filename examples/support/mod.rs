@@ -4,7 +4,7 @@ use glium::Display;
 use glutin::prelude::*;
 use glutin::display::GetGlDisplay;
 use glutin::surface::WindowSurface;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::HasWindowHandle;
 
 pub mod camera;
 
@@ -119,7 +119,7 @@ impl<T: ApplicationContext + 'static> State<T> {
         // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
         // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
         // If you depend on features available in modern OpenGL Versions you need to request a specific, modern, version. Otherwise things will very likely fail.
-        let raw_window_handle = window.raw_window_handle();
+        let raw_window_handle = window.window_handle().unwrap().as_raw();
         let context_attributes = glutin::context::ContextAttributesBuilder::new().build(Some(raw_window_handle));
         let fallback_context_attributes = glutin::context::ContextAttributesBuilder::new()
             .with_context_api(glutin::context::ContextApi::Gles(None))

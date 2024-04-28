@@ -15,7 +15,7 @@ use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin::surface::{SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::event::Event;
 use winit::event_loop::{EventLoopBuilder, EventLoopProxy};
 use winit::window::{Window, WindowBuilder, WindowId};
@@ -51,7 +51,7 @@ enum HandleOrWindow {
 
 impl From<&'static Window> for HandleOrWindow {
     fn from(window: &'static Window) -> Self {
-        let raw_window_handle = window.raw_window_handle();
+        let raw_window_handle = window.window_handle().unwrap().as_raw();
 
         match raw_window_handle {
             RawWindowHandle::Xlib(_) |
@@ -80,7 +80,7 @@ impl From<HandleOrWindow> for RawWindowHandle {
     fn from(handle: HandleOrWindow) -> Self {
         match handle {
             HandleOrWindow::SendHandle(handle) => handle,
-            HandleOrWindow::RefWindow(window) => window.raw_window_handle(),
+            HandleOrWindow::RefWindow(window) => window.window_handle().unwrap().as_raw(),
         }
     }
 }

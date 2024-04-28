@@ -38,12 +38,14 @@ version = "0.31"
 features = []
 optional = true
 default-features = false
+path = "../../clones/glutin/glutin"
 
 [dependencies.glutin-winit]
 version = "0.4"
 features = []
 optional = true
 default-features = false
+path = "../../clones/glutin/glutin-winit"
 
 [dependencies.winit]
 version = "0.29"
@@ -52,7 +54,7 @@ optional = true
 default-features = false
 
 [dependencies.raw-window-handle]
-version = "0.5"
+version = "0.6"
 features = []
 optional = true
 default-features = false
@@ -75,8 +77,8 @@ obj = { version = "0.10", features = ["genmesh"] }
 rand = "0.8"
 libc = "0.2.62"
 winit = "0.29"
-raw-window-handle = "0.5"
-glutin-winit = "0.4"
+raw-window-handle = "0.6"
+glutin-winit = { version = "0.4", path = "../../clones/glutin/glutin-winit" }
 takeable-option = "0.5"
 
 [package.metadata.docs.rs]

@@ -356,7 +356,7 @@ impl SimpleWindowBuilder {
         Display<glutin::surface::WindowSurface>,
     ) {
         use glutin::prelude::*;
-        use raw_window_handle::HasRawWindowHandle;
+        use raw_window_handle::HasWindowHandle;
 
         // First we start by opening a new Window
         let display_builder =
@@ -375,7 +375,7 @@ impl SimpleWindowBuilder {
         let attrs =
             glutin::surface::SurfaceAttributesBuilder::<glutin::surface::WindowSurface>::new()
                 .build(
-                    window.raw_window_handle(),
+                    window.window_handle().unwrap().as_raw(),
                     NonZeroU32::new(width).unwrap(),
                     NonZeroU32::new(height).unwrap(),
                 );
@@ -388,7 +388,7 @@ impl SimpleWindowBuilder {
                 .unwrap()
         };
         let context_attributes = glutin::context::ContextAttributesBuilder::new()
-            .build(Some(window.raw_window_handle()));
+            .build(Some(window.window_handle().unwrap().as_raw()));
         let current_context = Some(unsafe {
             gl_config
                 .display()
