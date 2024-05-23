@@ -19,13 +19,13 @@ fn main() {
     let event_loop = winit::event_loop::EventLoopBuilder::new()
         .build()
         .expect("event loop building");
-    let window_builder = winit::window::WindowBuilder::new().with_title("Glium SPIR-V example");
+    let window_builder = winit::window::WindowAttributes::new().with_title("Glium SPIR-V example");
     let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
     let display_builder = glutin_winit::DisplayBuilder::new().with_window_builder(Some(window_builder));
 
     // Now we need to create a window
     let (window, gl_config) = display_builder
-        .build(&event_loop, config_template_builder, |mut configs| {
+        .build::<(), _>(&event_loop, config_template_builder, |mut configs| {
             // Just use the first configuration since we don't have any special preferences
             configs.next().unwrap()
         })

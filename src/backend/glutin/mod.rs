@@ -305,7 +305,7 @@ unsafe impl<T: SurfaceTypeTrait + ResizeableSurface> Backend for GlutinBackend<T
 #[cfg(feature = "simple_window_builder")]
 /// Builder to simplify glium/glutin context creation.
 pub struct SimpleWindowBuilder {
-    builder: winit::window::WindowBuilder,
+    builder: winit::window::WindowAttributes,
 }
 
 #[cfg(feature = "simple_window_builder")]
@@ -313,7 +313,7 @@ impl SimpleWindowBuilder {
     /// Initializes a new builder with default values.
     pub fn new() -> Self {
         Self {
-            builder: winit::window::WindowBuilder::new()
+            builder: winit::window::WindowAttributes::new()
                 .with_title("Simple Glium Window")
                 .with_inner_size(winit::dpi::PhysicalSize::new(800, 480)),
         }
@@ -336,13 +336,13 @@ impl SimpleWindowBuilder {
 
     /// Replace the used [`WindowBuilder`](winit::window::WindowBuilder),
     /// do this before you set other parameters or you'll overwrite the parameters.
-    pub fn set_window_builder(mut self, window_builder: winit::window::WindowBuilder) -> Self {
+    pub fn set_window_builder(mut self, window_builder: winit::window::WindowAttributes) -> Self {
         self.builder = window_builder;
         self
     }
 
     /// Returns the inner [`WindowBuilder`](winit::window::WindowBuilder).
-    pub fn into_window_builder(self) -> winit::window::WindowBuilder {
+    pub fn into_window_builder(self) -> winit::window::WindowAttributes {
         self.builder
     }
 
@@ -363,7 +363,7 @@ impl SimpleWindowBuilder {
             glutin_winit::DisplayBuilder::new().with_window_builder(Some(self.builder));
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
         let (window, gl_config) = display_builder
-            .build(&event_loop, config_template_builder, |mut configs| {
+            .build::<T, _>(event_loop, config_template_builder, |mut configs| {
                 // Just use the first configuration since we don't have any special preferences here
                 configs.next().unwrap()
             })

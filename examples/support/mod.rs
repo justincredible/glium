@@ -100,16 +100,16 @@ pub struct State<T> {
 
 impl<T: ApplicationContext + 'static> State<T> {
     pub fn new<W>(
-        event_loop: &winit::event_loop::EventLoopWindowTarget<W>,
+        event_loop: &impl glutin_winit::WindowTarget,
         visible: bool,
     ) -> Self {
-        let window_builder = winit::window::WindowBuilder::new().with_title(T::WINDOW_TITLE).with_visible(visible);
+        let window_builder = winit::window::WindowAttributes::new().with_title(T::WINDOW_TITLE).with_visible(visible);
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
         let display_builder = glutin_winit::DisplayBuilder::new().with_window_builder(Some(window_builder));
 
         // First we create a window
         let (window, gl_config) = display_builder
-            .build(event_loop, config_template_builder, |mut configs| {
+            .build::<W, _>(event_loop, config_template_builder, |mut configs| {
                 // Just use the first configuration since we don't have any special preferences here
                 configs.next().unwrap()
             })
@@ -172,7 +172,7 @@ impl<T: ApplicationContext + 'static> State<T> {
                 // The Resumed/Suspended events are mostly for Android compatiblity since the context can get lost there at any point.
                 // For convenience's sake the Resumed event is also delivered on other platforms on program startup.
                 winit::event::Event::Resumed => {
-                    state = Some(State::new(window_target, true));
+                    state = Some(State::new::<T>(window_target, true));
                 },
                 winit::event::Event::Suspended => state = None,
                 // By requesting a redraw in response to a AboutToWait event we get continuous rendering.
@@ -222,7 +222,7 @@ impl<T: ApplicationContext + 'static> State<T> {
         let event_loop = winit::event_loop::EventLoopBuilder::new()
             .build()
             .expect("event loop building");
-        let mut state:State<T> = State::new(&event_loop, visible);
+        let mut state:State<T> = State::new::<T>(&event_loop, visible);
         state.context.update();
         state.context.draw_frame(&state.display);
     }

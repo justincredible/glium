@@ -18,7 +18,7 @@ use glutin_winit::DisplayBuilder;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::event::Event;
 use winit::event_loop::{EventLoopBuilder, EventLoopProxy};
-use winit::window::{Window, WindowBuilder, WindowId};
+use winit::window::{Window, WindowAttributes, WindowId};
 
 use std::collections::HashMap;
 use std::env;
@@ -116,13 +116,13 @@ unsafe fn initialize_event_loop() {
                 event_loop.run(move |event, window_target| {
                     match event {
                         Event::UserEvent(_) => {
-                            let window_builder = WindowBuilder::new().with_visible(false);
+                            let window_builder = WindowAttributes::new().with_visible(false);
 
                             let config_template_builder = ConfigTemplateBuilder::new();
                             let display_builder =
                                 DisplayBuilder::new().with_window_builder(Some(window_builder));
                             let (window, gl_config) = display_builder
-                                .build(&window_target, config_template_builder, |mut configs| {
+                                .build::<(), _>(window_target, config_template_builder, |mut configs| {
                                     // Just use the first configuration since we don't have any special preferences here
                                     configs.next().unwrap()
                                 })
@@ -221,7 +221,7 @@ pub fn rebuild_display(_display: &glium::Display<WindowSurface>) {
     /*
     let version = parse_version();
     let event_loop = winit::event_loop::EventLoop::new();
-    let wb = winit::window::WindowBuilder::new().with_visible(false);
+    let wb = winit::window::WindowAttributes::new().with_visible(false);
     let cb = glutin::ContextBuilder::new()
         .with_gl_debug_flag(true)
         .with_gl(version);
