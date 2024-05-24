@@ -92,6 +92,11 @@ pub trait ApplicationContext {
     const WINDOW_TITLE:&'static str;
 }
 
+pub enum WinitEventLoop<'a> {
+    New(&'a winit::event_loop::EventLoop<()>),
+    Active(&'a winit::event_loop::ActiveEventLoop),
+}
+
 pub struct State<T> {
     pub display: glium::Display<WindowSurface>,
     pub window: winit::window::Window,
@@ -100,20 +105,26 @@ pub struct State<T> {
 
 impl<T: ApplicationContext + 'static> State<T> {
     pub fn new<W>(
-        event_loop: &impl glutin_winit::WindowTarget,
+        event_loop: WinitEventLoop,
         visible: bool,
     ) -> Self {
-        let window_builder = winit::window::WindowAttributes::new().with_title(T::WINDOW_TITLE).with_visible(visible);
+        let window_builder = winit::window::Window::default_attributes().with_title(T::WINDOW_TITLE).with_visible(visible);
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
-        let display_builder = glutin_winit::DisplayBuilder::new().with_window_builder(Some(window_builder));
+        let display_builder = glutin_winit::DisplayBuilder::new().with_window_attributes(Some(window_builder));
 
         // First we create a window
-        let (window, gl_config) = display_builder
-            .build::<W, _>(event_loop, config_template_builder, |mut configs| {
-                // Just use the first configuration since we don't have any special preferences here
-                configs.next().unwrap()
-            })
-            .unwrap();
+        let (window, gl_config) = match event_loop {
+            WinitEventLoop::New(el) => display_builder.build(el, config_template_builder, |mut configs| {
+                    // Just use the first configuration since we don't have any special preferences here
+                    configs.next().unwrap()
+                })
+                .unwrap(),
+            WinitEventLoop::Active(ael) => display_builder.build(ael, config_template_builder, |mut configs| {
+                    // Just use the first configuration since we don't have any special preferences here
+                    configs.next().unwrap()
+                })
+                .unwrap(),
+        };
         let window = window.unwrap();
 
         // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
@@ -162,7 +173,7 @@ impl<T: ApplicationContext + 'static> State<T> {
 
     /// Start the event_loop and keep rendering frames until the program is closed
     pub fn run_loop() {
-        let event_loop = winit::event_loop::EventLoopBuilder::new()
+        let event_loop = winit::event_loop::EventLoop::builder()
             .build()
             .expect("event loop building");
         let mut state: Option<State<T>> = None;
@@ -172,7 +183,7 @@ impl<T: ApplicationContext + 'static> State<T> {
                 // The Resumed/Suspended events are mostly for Android compatiblity since the context can get lost there at any point.
                 // For convenience's sake the Resumed event is also delivered on other platforms on program startup.
                 winit::event::Event::Resumed => {
-                    state = Some(State::new::<T>(window_target, true));
+                    state = Some(State::new::<T>(WinitEventLoop::Active(window_target), true));
                 },
                 winit::event::Event::Suspended => state = None,
                 // By requesting a redraw in response to a AboutToWait event we get continuous rendering.
@@ -219,10 +230,10 @@ impl<T: ApplicationContext + 'static> State<T> {
 
     /// Create a context and draw a single frame
     pub fn run_once(visible: bool) {
-        let event_loop = winit::event_loop::EventLoopBuilder::new()
+        let event_loop = winit::event_loop::EventLoop::builder()
             .build()
             .expect("event loop building");
-        let mut state:State<T> = State::new::<T>(&event_loop, visible);
+        let mut state:State<T> = State::new::<T>(WinitEventLoop::New(&event_loop), visible);
         state.context.update();
         state.context.draw_frame(&state.display);
     }

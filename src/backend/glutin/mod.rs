@@ -313,7 +313,7 @@ impl SimpleWindowBuilder {
     /// Initializes a new builder with default values.
     pub fn new() -> Self {
         Self {
-            builder: winit::window::WindowAttributes::new()
+            builder: winit::window::Window::default_attributes()
                 .with_title("Simple Glium Window")
                 .with_inner_size(winit::dpi::PhysicalSize::new(800, 480)),
         }
@@ -360,10 +360,10 @@ impl SimpleWindowBuilder {
 
         // First we start by opening a new Window
         let display_builder =
-            glutin_winit::DisplayBuilder::new().with_window_builder(Some(self.builder));
+            glutin_winit::DisplayBuilder::new().with_window_attributes(Some(self.builder));
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
         let (window, gl_config) = display_builder
-            .build::<T, _>(event_loop, config_template_builder, |mut configs| {
+            .build(event_loop, config_template_builder, |mut configs| {
                 // Just use the first configuration since we don't have any special preferences here
                 configs.next().unwrap()
             })

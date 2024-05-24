@@ -17,8 +17,8 @@ There are three concepts in play:
 
 */
 
-use winit::event_loop::EventLoopBuilder;
-use winit::window::WindowAttributes;
+use winit::event_loop::EventLoop;
+use winit::window::Window;
 use glium::Surface;
 use glutin::surface::WindowSurface;
 use glutin::config::ConfigTemplateBuilder;
@@ -37,16 +37,16 @@ use std::num::NonZeroU32;
 use std::os::raw::c_void;
 
 fn main() {
-    let event_loop = EventLoopBuilder::new()
+    let event_loop = EventLoop::builder()
         .build()
         .expect("event loop building");
-    let window_builder = WindowAttributes::new();
+    let window_builder = Window::default_attributes();
     let config_template_builder = ConfigTemplateBuilder::new();
-    let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
+    let display_builder = DisplayBuilder::new().with_window_attributes(Some(window_builder));
 
     // First we create a window
     let (window, gl_config) = display_builder
-        .build::<(), _>(&event_loop, config_template_builder, |mut configs| {
+        .build(&event_loop, config_template_builder, |mut configs| {
             // Just use the first configuration since we don't have any special preferences here
             configs.next().unwrap()
         })

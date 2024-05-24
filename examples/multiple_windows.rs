@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use glium::{Surface, Display};
 use glutin::surface::WindowSurface;
 use support::{ApplicationContext, State};
-use winit::{window::WindowId, event_loop::EventLoopBuilder};
+use winit::{window::WindowId, event_loop::EventLoop};
 
 mod support;
 
@@ -35,7 +35,7 @@ impl ApplicationContext for Application {
 }
 
 fn main() {
-    let event_loop = EventLoopBuilder::new()
+    let event_loop = EventLoop::builder()
         .build()
         .expect("event loop building");
     // To simplify things we use a single type for both the main and sub windows,
@@ -48,7 +48,7 @@ fn main() {
             // For convenience's sake the Resumed event is also delivered on other platforms on program startup.
             winit::event::Event::Resumed => {
                 // On startup we create the main window and insert it into the HashMap just like subsequent sub windows.
-                let window:State<Application> = State::new::<Application>(window_target, true);
+                let window:State<Application> = State::new::<Application>(support::WinitEventLoop::Active(window_target), true);
                 windows.insert(window.window.id(), window);
             },
             winit::event::Event::Suspended => {
@@ -65,7 +65,7 @@ fn main() {
                             // This is the main part, where we actually create the new window, enumerate it and
                             // insert it into our HashMap
                             if state.context.id == 1 {
-                                let mut window:State<Application> = State::new::<Application>(window_target, true);
+                                let mut window:State<Application> = State::new::<Application>(support::WinitEventLoop::Active(window_target), true);
                                 window.context.id = windows.len() as i32 + 1;
                                 let title = format!("Window #{}", window.context.id);
                                 window.window.set_title(&title);

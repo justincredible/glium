@@ -9,7 +9,7 @@ mod support;
 use support::view_matrix;
 
 fn main() {
-    let event_loop = winit::event_loop::EventLoopBuilder::new()
+    let event_loop = winit::event_loop::EventLoop::builder()
         .build()
         .expect("event loop building");
     let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
