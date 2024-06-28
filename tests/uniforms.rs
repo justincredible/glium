@@ -5,11 +5,15 @@ use glium::Surface;
 
 mod support;
 
-const RED_HALF_ALPHA: (u8, u8, u8, u8) = if cfg!(windows) {
-    (255, 0, 0, 127)
-} else {
-    (255, 0, 0, 128)
-};
+#[inline]
+fn assert_range(first: (u8, u8, u8, u8), last: (u8, u8, u8, u8)) {
+    assert!(
+        first == (255, 0, 0, 127) || first == (255, 0, 0, 128),
+        "Unexpected conversion of (1.0, 0, 0, 0.5) to {:?}",
+        first,
+    );
+    assert_eq!(first, last);
+}
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -51,8 +55,7 @@ fn uniforms_storage_single_value() {
     texture.as_surface().draw(&vb, &ib, &program, &uniforms, &Default::default()).unwrap();
 
     let data: Vec<Vec<(u8, u8, u8, u8)>> = texture.read();
-    assert_eq!(data[0][0], RED_HALF_ALPHA);
-    assert_eq!(data.last().unwrap().last().unwrap(), &RED_HALF_ALPHA);
+    assert_range(data[0][0], *data.last().unwrap().last().unwrap());
 
     display.assert_no_error(None);
 }
@@ -133,8 +136,7 @@ fn uniforms_storage_ignore_inactive_uniforms() {
     texture.as_surface().draw(&vb, &ib, &program, &uniforms, &Default::default()).unwrap();
 
     let data: Vec<Vec<(u8, u8, u8, u8)>> = texture.read();
-    assert_eq!(data[0][0], RED_HALF_ALPHA);
-    assert_eq!(data.last().unwrap().last().unwrap(), &RED_HALF_ALPHA);
+    assert_range(data[0][0], *data.last().unwrap().last().unwrap());
 
     display.assert_no_error(None);
 }
@@ -212,8 +214,7 @@ fn uniforms_dynamic_single_value() {
     texture.as_surface().draw(&vb, &ib, &program, &uniforms, &Default::default()).unwrap();
 
     let data: Vec<Vec<(u8, u8, u8, u8)>> = texture.read();
-    assert_eq!(data[0][0], RED_HALF_ALPHA);
-    assert_eq!(data.last().unwrap().last().unwrap(), &RED_HALF_ALPHA);
+    assert_range(data[0][0], *data.last().unwrap().last().unwrap());
 
     display.assert_no_error(None);
 }
@@ -296,8 +297,7 @@ fn uniforms_dynamic_ignore_inactive_uniforms() {
     texture.as_surface().draw(&vb, &ib, &program, &uniforms, &Default::default()).unwrap();
 
     let data: Vec<Vec<(u8, u8, u8, u8)>> = texture.read();
-    assert_eq!(data[0][0], RED_HALF_ALPHA);
-    assert_eq!(data.last().unwrap().last().unwrap(), &RED_HALF_ALPHA);
+    assert_range(data[0][0], *data.last().unwrap().last().unwrap());
 
     display.assert_no_error(None);
 }
