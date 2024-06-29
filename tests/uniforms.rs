@@ -5,14 +5,21 @@ use glium::Surface;
 
 mod support;
 
-#[inline]
-fn assert_range(first: (u8, u8, u8, u8), last: (u8, u8, u8, u8)) {
-    assert!(
-        first == (255, 0, 0, 127) || first == (255, 0, 0, 128),
-        "Unexpected conversion of (1.0, 0, 0, 0.5) to {:?}",
-        first,
-    );
-    assert_eq!(first, last);
+// Asserts the conversion of 0.5f32 to u8 falls within 127..=128
+// for a given OpenGL implementation
+// data expresses a 2D vector of converted (1f32, 0, 0, 0.5) values
+macro_rules! assert_range {
+    ($data:expr) => {
+        let first = $data[0][0];
+        let last = *$data.last().unwrap().last().unwrap();
+
+        assert!(
+            first == (255, 0, 0, 127) || first == (255, 0, 0, 128),
+            "Unexpected conversion of (1.0, 0, 0, 0.5) to {:?}",
+            first,
+        );
+        assert_eq!(first, last);
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -54,8 +61,7 @@ fn uniforms_storage_single_value() {
     texture.as_surface().clear_color(0.0, 0.0, 0.0, 0.0);
     texture.as_surface().draw(&vb, &ib, &program, &uniforms, &Default::default()).unwrap();
 
-    let data: Vec<Vec<(u8, u8, u8, u8)>> = texture.read();
-    assert_range(data[0][0], *data.last().unwrap().last().unwrap());
+    assert_range!(texture.read::<Vec<Vec<(u8, u8, u8, u8)>>>());
 
     display.assert_no_error(None);
 }
@@ -135,8 +141,7 @@ fn uniforms_storage_ignore_inactive_uniforms() {
     texture.as_surface().clear_color(0.0, 0.0, 0.0, 0.0);
     texture.as_surface().draw(&vb, &ib, &program, &uniforms, &Default::default()).unwrap();
 
-    let data: Vec<Vec<(u8, u8, u8, u8)>> = texture.read();
-    assert_range(data[0][0], *data.last().unwrap().last().unwrap());
+    assert_range!(texture.read::<Vec<Vec<(u8, u8, u8, u8)>>>());
 
     display.assert_no_error(None);
 }
@@ -213,8 +218,7 @@ fn uniforms_dynamic_single_value() {
     texture.as_surface().clear_color(0.0, 0.0, 0.0, 0.0);
     texture.as_surface().draw(&vb, &ib, &program, &uniforms, &Default::default()).unwrap();
 
-    let data: Vec<Vec<(u8, u8, u8, u8)>> = texture.read();
-    assert_range(data[0][0], *data.last().unwrap().last().unwrap());
+    assert_range!(texture.read::<Vec<Vec<(u8, u8, u8, u8)>>>());
 
     display.assert_no_error(None);
 }
@@ -296,8 +300,7 @@ fn uniforms_dynamic_ignore_inactive_uniforms() {
     texture.as_surface().clear_color(0.0, 0.0, 0.0, 0.0);
     texture.as_surface().draw(&vb, &ib, &program, &uniforms, &Default::default()).unwrap();
 
-    let data: Vec<Vec<(u8, u8, u8, u8)>> = texture.read();
-    assert_range(data[0][0], *data.last().unwrap().last().unwrap());
+    assert_range!(texture.read::<Vec<Vec<(u8, u8, u8, u8)>>>());
 
     display.assert_no_error(None);
 }
