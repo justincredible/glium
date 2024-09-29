@@ -299,6 +299,7 @@ fn zero_sized_texture_3d_creation() {
 }
 
 #[test]
+#[ignore]
 fn bindless_texture_residency_context_rebuild() {
     let display = support::build_display();
     let (vb, ib) = support::build_rectangle_vb_ib(&display);

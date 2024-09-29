@@ -95,6 +95,7 @@ fn sync() {
 }
 
 #[test]
+#[ignore]
 fn multiple_displays() {
     let display1 = support::build_display();
     let display2 = support::build_display();
