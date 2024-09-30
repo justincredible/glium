@@ -15,7 +15,7 @@ use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin::surface::{SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
-use raw_window_handle::{HasWindowHandle, WindowHandle, RawWindowHandle};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use glium::winit::event::Event;
 use glium::winit::event_loop::{EventLoop, EventLoopProxy};
 use glium::winit::window::{Window, WindowId};
@@ -45,49 +45,60 @@ static SEND_PROXY: Once = Once::new();
 
 #[derive(Debug)]
 enum HandleOrWindow {
-    SendHandle(WindowHandle<'static>),
-    RefWindow(&'static Window),
+    SendHandle(RawWindowHandle),
+    JustWindow(Window),
 }
 
-impl From<&'static Window> for HandleOrWindow {
-    fn from(window: &'static Window) -> Self {
-        let window_handle = window.window_handle().unwrap();
+fn is_send_handle(window: &Window) -> bool {
+    let window_handle = window.window_handle().unwrap();
 
-        match window_handle.as_raw() {
-            RawWindowHandle::Xlib(_) |
-            RawWindowHandle::Xcb(_) |
-            // n.b. `Window` is `!Send` and `!Sync` for wasm32
-            RawWindowHandle::Web(_) |
-            RawWindowHandle::Drm(_)
-                => HandleOrWindow::SendHandle(window_handle),
-            RawWindowHandle::UiKit(_) |
-            RawWindowHandle::AppKit(_) |
-            RawWindowHandle::Orbital(_) |
-            RawWindowHandle::Wayland(_) |
-            RawWindowHandle::Gbm(_) |
-            RawWindowHandle::Win32(_) |
-            RawWindowHandle::WinRt(_) |
-            RawWindowHandle::AndroidNdk(_) |
-            RawWindowHandle::Haiku(_)
-                => HandleOrWindow::RefWindow(window),
-            // Intentionally unsupported platforms
-            _ => panic!("Unsupported"),
-        }
+    match window_handle.as_raw() {
+        RawWindowHandle::Xlib(_) |
+        RawWindowHandle::Xcb(_) |
+        RawWindowHandle::Drm(_) |
+        RawWindowHandle::Win32(_) |
+        RawWindowHandle::Web(_)
+            => true,
+        RawWindowHandle::UiKit(_) |
+        RawWindowHandle::AppKit(_) |
+        RawWindowHandle::Orbital(_) |
+        RawWindowHandle::OhosNdk(_) |
+        RawWindowHandle::Wayland(_) |
+        RawWindowHandle::Gbm(_) |
+        RawWindowHandle::WinRt(_) |
+        RawWindowHandle::WebCanvas(_) |
+        RawWindowHandle::WebOffscreenCanvas(_) |
+        RawWindowHandle::AndroidNdk(_) |
+        RawWindowHandle::Haiku(_)
+            => false,
+        // Unknown platforms
+        _ => panic!("Unsupported"),
+    }
+}
+
+impl From<Window> for HandleOrWindow {
+    fn from(window: Window) -> Self {
+        HandleOrWindow::JustWindow(window)
+    }
+}
+
+impl From<&Window> for HandleOrWindow {
+    fn from(window: &Window) -> Self {
+        HandleOrWindow::SendHandle(window.window_handle().unwrap().as_raw())
     }
 }
 
 impl From<HandleOrWindow> for RawWindowHandle {
     fn from(handle: HandleOrWindow) -> Self {
-        let handle = match handle {
+        match handle {
             HandleOrWindow::SendHandle(handle) => handle,
-            HandleOrWindow::RefWindow(window) => window.window_handle().unwrap(),
-        };
-        handle.as_raw()
+            HandleOrWindow::JustWindow(window) => window.window_handle().unwrap().as_raw(),
+        }
     }
 }
 
 // SAFETY
-// requires `From` implementation to be kept in sync with `raw_window_handle` and `winit` crates
+// requires `is_send_handle()` be kept in sync with `raw_window_handle` and `winit` crates
 unsafe impl Send for HandleOrWindow {}
 
 unsafe fn initialize_event_loop() {
@@ -100,11 +111,7 @@ unsafe fn initialize_event_loop() {
         let builder = thread::Builder::new().name("event_loop".into());
         builder
             .spawn(|| {
-                // Scoping the static mut here as it is only static for the `Window` references to bypass the borrow checker
-                // The choice to use static references simplifies the combined platform solution
-                static mut WINDOWS: Option<HashMap<WindowId, Window>> = None;
-                // safety: initialize before (exclusive) use in event loop
-                WINDOWS = Some(HashMap::new());
+                let mut windows: HashMap<WindowId, Window> = HashMap::new();
 
                 let event_loop_res = if cfg!(unix) || cfg!(windows) {
                     EventLoop::builder().with_any_thread(true).build()
@@ -130,17 +137,18 @@ unsafe fn initialize_event_loop() {
                                 .unwrap();
 
                             let window = window.unwrap();
-                            let key = window.id();
 
-                            // SAFETY
-                            // The event loop is a single thread
-                            // The `HashMap` only grows so references to its values stay valid
-                            #[allow(static_mut_refs)]
-                            WINDOWS.as_mut().unwrap().insert(key, window);
-                            #[allow(static_mut_refs)]
-                            let window = &WINDOWS.as_ref().unwrap()[&key];
+                            let handle_or_window = if is_send_handle(&window) {
+                                let key = window.id();
+                                windows.insert(key, window);
+                                let window = &windows[&key];
 
-                            sender.send((window.into(), gl_config)).unwrap();
+                                window.into()
+                            }
+                            else {
+                                window.into()
+                            };
+                            sender.send((handle_or_window, gl_config)).unwrap();
                         }
                         _ => {
                             // Send event loop proxy ASAP
