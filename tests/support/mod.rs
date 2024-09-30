@@ -23,7 +23,7 @@ use glium::winit::window::{Window, WindowId};
 use std::collections::HashMap;
 use std::env;
 use std::num::NonZeroU32;
-use std::sync::{mpsc::Receiver, Mutex, Once, RwLock};
+use std::sync::{Arc, mpsc::Receiver, Mutex, Once, RwLock};
 use std::thread;
 
 // The code below here down to `build_display` is a workaround due to a lack of a test initialization hook
@@ -46,7 +46,7 @@ static SEND_PROXY: Once = Once::new();
 #[derive(Debug)]
 enum HandleOrWindow {
     SendHandle(RawWindowHandle),
-    JustWindow(Window),
+    BoxWindow(Arc<Window>),
 }
 
 fn is_send_handle(window: &Window) -> bool {
@@ -76,9 +76,9 @@ fn is_send_handle(window: &Window) -> bool {
     }
 }
 
-impl From<Window> for HandleOrWindow {
-    fn from(window: Window) -> Self {
-        HandleOrWindow::JustWindow(window)
+impl From<Arc<Window>> for HandleOrWindow {
+    fn from(window: Arc<Window>) -> Self {
+        HandleOrWindow::BoxWindow(window)
     }
 }
 
@@ -92,7 +92,7 @@ impl From<HandleOrWindow> for RawWindowHandle {
     fn from(handle: HandleOrWindow) -> Self {
         match handle {
             HandleOrWindow::SendHandle(handle) => handle,
-            HandleOrWindow::JustWindow(window) => window.window_handle().unwrap().as_raw(),
+            HandleOrWindow::BoxWindow(window) => window.window_handle().unwrap().as_raw(),
         }
     }
 }
@@ -111,7 +111,7 @@ unsafe fn initialize_event_loop() {
         let builder = thread::Builder::new().name("event_loop".into());
         builder
             .spawn(|| {
-                let mut windows: HashMap<WindowId, Window> = HashMap::new();
+                let mut windows: HashMap<WindowId, Arc<Window>> = HashMap::new();
 
                 let event_loop_res = if cfg!(unix) || cfg!(windows) {
                     EventLoop::builder().with_any_thread(true).build()
@@ -138,15 +138,14 @@ unsafe fn initialize_event_loop() {
 
                             let window = window.unwrap();
 
+                            let key = window.id();
+                            windows.insert(key, Arc::new(window));
+                            let window = &windows[&key];
                             let handle_or_window = if is_send_handle(&window) {
-                                let key = window.id();
-                                windows.insert(key, window);
-                                let window = &windows[&key];
-
-                                window.into()
+                                (&**window).into()
                             }
                             else {
-                                window.into()
+                                Arc::clone(window).into()
                             };
                             sender.send((handle_or_window, gl_config)).unwrap();
                         }
