@@ -15,7 +15,7 @@ use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin::surface::{SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use raw_window_handle::HasWindowHandle;
 use glium::winit::event::Event;
 use glium::winit::event_loop::{EventLoop, EventLoopProxy};
 use glium::winit::window::{Window, WindowId};
@@ -37,69 +37,11 @@ use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 
 // Thread communication
 static EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<()>>> = RwLock::new(None);
-static WINDOW_RECEIVER: Mutex<Option<Receiver<(HandleOrWindow, Config)>>> = Mutex::new(None);
+static WINDOW_RECEIVER: Mutex<Option<Receiver<(Arc<Window>, Config)>>> = Mutex::new(None);
 
 // Initialization
 static INIT_EVENT_LOOP: Once = Once::new();
 static SEND_PROXY: Once = Once::new();
-
-#[derive(Debug)]
-enum HandleOrWindow {
-    SendHandle(RawWindowHandle),
-    BoxWindow(Arc<Window>),
-}
-
-fn is_send_handle(window: &Window) -> bool {
-    let window_handle = window.window_handle().unwrap();
-
-    match window_handle.as_raw() {
-        RawWindowHandle::Xlib(_) |
-        RawWindowHandle::Xcb(_) |
-        RawWindowHandle::Drm(_) |
-        RawWindowHandle::Win32(_) |
-        RawWindowHandle::Web(_)
-            => true,
-        RawWindowHandle::UiKit(_) |
-        RawWindowHandle::AppKit(_) |
-        RawWindowHandle::Orbital(_) |
-        RawWindowHandle::OhosNdk(_) |
-        RawWindowHandle::Wayland(_) |
-        RawWindowHandle::Gbm(_) |
-        RawWindowHandle::WinRt(_) |
-        RawWindowHandle::WebCanvas(_) |
-        RawWindowHandle::WebOffscreenCanvas(_) |
-        RawWindowHandle::AndroidNdk(_) |
-        RawWindowHandle::Haiku(_)
-            => false,
-        // Unknown platforms
-        _ => panic!("Unsupported"),
-    }
-}
-
-impl From<Arc<Window>> for HandleOrWindow {
-    fn from(window: Arc<Window>) -> Self {
-        HandleOrWindow::BoxWindow(window)
-    }
-}
-
-impl From<&Window> for HandleOrWindow {
-    fn from(window: &Window) -> Self {
-        HandleOrWindow::SendHandle(window.window_handle().unwrap().as_raw())
-    }
-}
-
-impl From<HandleOrWindow> for RawWindowHandle {
-    fn from(handle: HandleOrWindow) -> Self {
-        match handle {
-            HandleOrWindow::SendHandle(handle) => handle,
-            HandleOrWindow::BoxWindow(window) => window.window_handle().unwrap().as_raw(),
-        }
-    }
-}
-
-// SAFETY
-// requires `is_send_handle()` be kept in sync with `raw_window_handle` and `winit` crates
-unsafe impl Send for HandleOrWindow {}
 
 unsafe fn initialize_event_loop() {
     INIT_EVENT_LOOP.call_once(|| {
@@ -141,13 +83,8 @@ unsafe fn initialize_event_loop() {
                             let key = window.id();
                             windows.insert(key, Arc::new(window));
                             let window = &windows[&key];
-                            let handle_or_window = if is_send_handle(&window) {
-                                (&**window).into()
-                            }
-                            else {
-                                Arc::clone(window).into()
-                            };
-                            sender.send((handle_or_window, gl_config)).unwrap();
+
+                            sender.send((Arc::clone(window), gl_config)).unwrap();
                         }
                         _ => {
                             // Send event loop proxy ASAP
@@ -186,7 +123,7 @@ pub fn build_display() -> Display<WindowSurface> {
         .send_event(()).unwrap();
 
     // Receive said window and config one thread at a time
-    let (handle_or_window, gl_config) =
+    let (window, gl_config) =
         WINDOW_RECEIVER
             .lock().unwrap()
             .as_ref().unwrap()
@@ -196,7 +133,7 @@ pub fn build_display() -> Display<WindowSurface> {
     // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
     // If you depend on features available in modern OpenGL Versions you need to request a specific, modern, version. Otherwise things will very likely fail.
     let version = parse_version();
-    let raw_window_handle = handle_or_window.into();
+    let raw_window_handle = window.window_handle().unwrap().as_raw();
     let context_attributes = ContextAttributesBuilder::new()
         .with_context_api(version)
         .build(Some(raw_window_handle));
