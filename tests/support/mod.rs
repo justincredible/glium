@@ -87,7 +87,7 @@ impl From<HandleOrWindow> for RawWindowHandle {
 }
 
 // SAFETY
-// requires `impl From<&Arc<Window>>` be kept in sync with `raw_window_handle` and `winit` crates
+// requires `From` implementation to be kept in sync with `raw_window_handle` and `winit` crates
 unsafe impl Send for HandleOrWindow {}
 
 struct Workaround {
