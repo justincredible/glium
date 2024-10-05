@@ -103,15 +103,13 @@ impl ApplicationHandler<()> for Workaround {
     fn user_event(&mut self, event_loop: &ActiveEventLoop, _event: ()) {
         let window_attributes = Window::default_attributes().with_visible(false);
         let config_template_builder = ConfigTemplateBuilder::new();
-        let display_builder =
-            DisplayBuilder::new().with_window_attributes(Some(window_attributes));
-        let (window, gl_config) = display_builder
+        let (window, gl_config) = DisplayBuilder::new()
+            .with_window_attributes(Some(window_attributes))
             .build(event_loop, config_template_builder, |mut configs| {
                 // Just use the first configuration since we don't have any special preferences here
                 configs.next().unwrap()
             })
             .unwrap();
-
         let window = window.unwrap();
         let key = window.id();
 
