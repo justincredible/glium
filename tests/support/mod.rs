@@ -48,40 +48,32 @@ enum HandleOrWindow {
     ArcWindow(Arc<Window>),
 }
 
-fn is_send_handle(window: &Window) -> bool {
-    match window.window_handle().unwrap().as_raw() {
-        RawWindowHandle::Xlib(_) |
-        RawWindowHandle::Xcb(_) |
-        RawWindowHandle::Drm(_) |
-        RawWindowHandle::Win32(_) |
-        RawWindowHandle::Web(_)
-            => true,
-        RawWindowHandle::UiKit(_) |
-        RawWindowHandle::AppKit(_) |
-        RawWindowHandle::Orbital(_) |
-        RawWindowHandle::OhosNdk(_) |
-        RawWindowHandle::Wayland(_) |
-        RawWindowHandle::Gbm(_) |
-        RawWindowHandle::WinRt(_) |
-        RawWindowHandle::WebCanvas(_) |
-        RawWindowHandle::WebOffscreenCanvas(_) |
-        RawWindowHandle::AndroidNdk(_) |
-        RawWindowHandle::Haiku(_)
-            => false,
-        // Unknown platforms
-        _ => panic!("Unsupported"),
-    }
-}
-
-impl From<Arc<Window>> for HandleOrWindow {
-    fn from(window: Arc<Window>) -> Self {
-        HandleOrWindow::ArcWindow(window)
-    }
-}
-
 impl From<&Arc<Window>> for HandleOrWindow {
     fn from(window: &Arc<Window>) -> Self {
-        HandleOrWindow::SendHandle(window.window_handle().unwrap().as_raw())
+        let handle = window.window_handle().unwrap().as_raw();
+
+        match handle {
+            RawWindowHandle::Xlib(_) |
+            RawWindowHandle::Xcb(_) |
+            RawWindowHandle::Drm(_) |
+            RawWindowHandle::Win32(_) |
+            RawWindowHandle::Web(_)
+                => HandleOrWindow::SendHandle(handle),
+            RawWindowHandle::UiKit(_) |
+            RawWindowHandle::AppKit(_) |
+            RawWindowHandle::Orbital(_) |
+            RawWindowHandle::OhosNdk(_) |
+            RawWindowHandle::Wayland(_) |
+            RawWindowHandle::Gbm(_) |
+            RawWindowHandle::WinRt(_) |
+            RawWindowHandle::WebCanvas(_) |
+            RawWindowHandle::WebOffscreenCanvas(_) |
+            RawWindowHandle::AndroidNdk(_) |
+            RawWindowHandle::Haiku(_)
+                => HandleOrWindow::ArcWindow(Arc::clone(window)),
+            // Unknown platforms
+            _ => panic!("Unsupported"),
+        }
     }
 }
 
@@ -95,7 +87,7 @@ impl From<HandleOrWindow> for RawWindowHandle {
 }
 
 // SAFETY
-// requires `is_send_handle()` be kept in sync with `raw_window_handle` and `winit` crates
+// requires `impl From<&Arc<Window>>` be kept in sync with `raw_window_handle` and `winit` crates
 unsafe impl Send for HandleOrWindow {}
 
 struct Workaround {
@@ -121,18 +113,11 @@ impl ApplicationHandler<()> for Workaround {
             .unwrap();
 
         let window = window.unwrap();
-
         let key = window.id();
-        self.windows.insert(key, Arc::new(window));
-        let window = &self.windows[&key];
-        let handle_or_window = if is_send_handle(&window) {
-            window.into()
-        }
-        else {
-            Arc::clone(window).into()
-        };
 
-        self.sender.send((handle_or_window, gl_config)).unwrap();
+        self.windows.insert(key, Arc::new(window));
+
+        self.sender.send(((&self.windows[&key]).into(), gl_config)).unwrap();
     }
 }
 
