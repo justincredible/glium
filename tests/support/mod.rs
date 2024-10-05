@@ -41,7 +41,6 @@ static mut WINDOW_RECEIVER: Mutex<Option<Receiver<(HandleOrWindow, Config)>>> = 
 
 // Initialization
 static mut INIT_EVENT_LOOP: Once = Once::new();
-static mut SEND_PROXY: Once = Once::new();
 
 #[derive(Debug)]
 enum HandleOrWindow {
@@ -110,7 +109,7 @@ unsafe fn initialize_event_loop() {
 
         let builder = thread::Builder::new().name("event_loop".into());
         builder
-            .spawn(|| {
+            .spawn(move || {
                 let mut windows: HashMap<WindowId, Arc<Window>> = HashMap::new();
 
                 let event_loop_res = if cfg!(unix) || cfg!(windows) {
@@ -119,7 +118,7 @@ unsafe fn initialize_event_loop() {
                     EventLoop::builder().build()
                 };
                 let event_loop = event_loop_res.expect("event loop building");
-                let proxy = event_loop.create_proxy();
+                ots.send(event_loop.create_proxy().clone()).unwrap();
 
                 #[allow(deprecated)]
                 event_loop.run(move |event, window_target| {
@@ -150,19 +149,13 @@ unsafe fn initialize_event_loop() {
 
                             sender.send((handle_or_window, gl_config)).unwrap();
                         }
-                        _ => {
-                            // Send event loop proxy ASAP
-                            SEND_PROXY.call_once(|| {
-                                ots.send(proxy.clone()).unwrap();
-                            });
-                        }
+                        _ => ()
                     }
                 })
                 .unwrap();
             })
             .unwrap();
 
-        // `recv` will block until any non-user event is encountered
         let event_loop_proxy = otr.recv().unwrap();
 
         // Write to the thread communication variables while still in `call_once`'s closure
