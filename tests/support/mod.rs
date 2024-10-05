@@ -154,7 +154,7 @@ pub fn build_display() -> Display<WindowSurface> {
                 };
                 let event_loop = event_loop_res.expect("event loop building");
 
-                ots.send(event_loop.create_proxy().clone()).unwrap();
+                ots.send(event_loop.create_proxy()).unwrap();
 
                 let mut app = Workaround {
                     sender,
