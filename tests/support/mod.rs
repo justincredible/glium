@@ -37,10 +37,10 @@ use glium::winit::platform::x11::EventLoopBuilderExtX11;
 use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 
 // Thread communication
-static mut EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<()>>> = RwLock::new(None);
-static mut WINDOW_RECEIVER: Mutex<Option<Receiver<(HandleOrWindow, Config)>>> = Mutex::new(None);
+static EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<()>>> = RwLock::new(None);
+static WINDOW_RECEIVER: Mutex<Option<Receiver<(HandleOrWindow, Config)>>> = Mutex::new(None);
 // Initialization
-static mut INIT_EVENT_LOOP: Once = Once::new();
+static INIT_EVENT_LOOP: Once = Once::new();
 
 #[derive(Debug)]
 enum HandleOrWindow {
@@ -138,7 +138,8 @@ impl ApplicationHandler<()> for Workaround {
     }
 }
 
-unsafe fn initialize_event_loop() {
+/// Builds a display for tests.
+pub fn build_display() -> Display<WindowSurface> {
     INIT_EVENT_LOOP.call_once(|| {
         // One-time-use channel to get the event loop proxy
         let (ots, otr) = std::sync::mpsc::sync_channel(0);
@@ -173,31 +174,18 @@ unsafe fn initialize_event_loop() {
 
         *WINDOW_RECEIVER.lock().unwrap() = Some(receiver);
     });
-}
-
-/// Builds a display for tests.
-pub fn build_display() -> Display<WindowSurface> {
-    // SAFETY
-    // This is the first function to run when any test thread calls build_display.
-    // `Once` spawns a new thread to create the event loop and sets up the communication channels.
-    // The static mut variables are only ever read with synchronization after initialization.
-    unsafe { initialize_event_loop(); }
 
     // Tell event loop to create a window and config for creating a display
-    unsafe {
-        EVENT_LOOP_PROXY
-            .read().unwrap()
-            .as_ref().unwrap()
-            .send_event(()).unwrap();
-    }
+    EVENT_LOOP_PROXY
+        .read().unwrap()
+        .as_ref().unwrap()
+        .send_event(()).unwrap();
 
     // Receive said window and config one thread at a time
-    let (handle_or_window, gl_config) = unsafe {
-        WINDOW_RECEIVER
-            .lock().unwrap()
-            .as_ref().unwrap()
-            .recv().unwrap()
-    };
+    let (handle_or_window, gl_config) = WINDOW_RECEIVER
+        .lock().unwrap()
+        .as_ref().unwrap()
+        .recv().unwrap();
 
     // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
     // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
