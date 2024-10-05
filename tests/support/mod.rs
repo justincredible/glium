@@ -104,11 +104,9 @@ struct Workaround {
 }
 
 impl ApplicationHandler<()> for Workaround {
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
-    }
+    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
 
-    fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, _event: WindowEvent) {
-    }
+    fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, _event: WindowEvent) {}
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, _event: ()) {
         let window_attributes = Window::default_attributes().with_visible(false);
@@ -142,7 +140,7 @@ impl ApplicationHandler<()> for Workaround {
 pub fn build_display() -> Display<WindowSurface> {
     INIT_EVENT_LOOP.call_once(|| {
         // One-time-use channel to get the event loop proxy
-        let (ots, otr) = std::sync::mpsc::sync_channel(0);
+        let (ots, otr) = std::sync::mpsc::channel();
         // Transfers window and config for creating display
         let (sender, receiver) = std::sync::mpsc::channel();
 
