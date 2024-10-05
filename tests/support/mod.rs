@@ -16,14 +16,15 @@ use glutin::prelude::*;
 use glutin::surface::{SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use glium::winit::event::Event;
-use glium::winit::event_loop::{EventLoop, EventLoopProxy};
+use glium::winit::application::ApplicationHandler;
+use glium::winit::event::WindowEvent;
+use glium::winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
 use glium::winit::window::{Window, WindowId};
 
 use std::collections::HashMap;
 use std::env;
 use std::num::NonZeroU32;
-use std::sync::{Arc, mpsc::Receiver, Mutex, Once, RwLock};
+use std::sync::{Arc, mpsc::{Receiver, Sender}, Mutex, Once, RwLock};
 use std::thread;
 
 // The code below here down to `build_display` is a workaround due to a lack of a test initialization hook
@@ -38,7 +39,6 @@ use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 // Thread communication
 static mut EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<()>>> = RwLock::new(None);
 static mut WINDOW_RECEIVER: Mutex<Option<Receiver<(HandleOrWindow, Config)>>> = Mutex::new(None);
-
 // Initialization
 static mut INIT_EVENT_LOOP: Once = Once::new();
 
@@ -49,9 +49,7 @@ enum HandleOrWindow {
 }
 
 fn is_send_handle(window: &Window) -> bool {
-    let window_handle = window.window_handle().unwrap();
-
-    match window_handle.as_raw() {
+    match window.window_handle().unwrap().as_raw() {
         RawWindowHandle::Xlib(_) |
         RawWindowHandle::Xcb(_) |
         RawWindowHandle::Drm(_) |
@@ -100,6 +98,46 @@ impl From<HandleOrWindow> for RawWindowHandle {
 // requires `is_send_handle()` be kept in sync with `raw_window_handle` and `winit` crates
 unsafe impl Send for HandleOrWindow {}
 
+struct Workaround {
+    sender: Sender<(HandleOrWindow, Config)>,
+    windows: HashMap<WindowId, Arc<Window>>,
+}
+
+impl ApplicationHandler<()> for Workaround {
+    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
+    }
+
+    fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, _event: WindowEvent) {
+    }
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, _event: ()) {
+        let window_attributes = Window::default_attributes().with_visible(false);
+        let config_template_builder = ConfigTemplateBuilder::new();
+        let display_builder =
+            DisplayBuilder::new().with_window_attributes(Some(window_attributes));
+        let (window, gl_config) = display_builder
+            .build(event_loop, config_template_builder, |mut configs| {
+                // Just use the first configuration since we don't have any special preferences here
+                configs.next().unwrap()
+            })
+            .unwrap();
+
+        let window = window.unwrap();
+
+        let key = window.id();
+        self.windows.insert(key, Arc::new(window));
+        let window = &self.windows[&key];
+        let handle_or_window = if is_send_handle(&window) {
+            window.into()
+        }
+        else {
+            Arc::clone(window).into()
+        };
+
+        self.sender.send((handle_or_window, gl_config)).unwrap();
+    }
+}
+
 unsafe fn initialize_event_loop() {
     INIT_EVENT_LOOP.call_once(|| {
         // One-time-use channel to get the event loop proxy
@@ -110,49 +148,21 @@ unsafe fn initialize_event_loop() {
         let builder = thread::Builder::new().name("event_loop".into());
         builder
             .spawn(move || {
-                let mut windows: HashMap<WindowId, Arc<Window>> = HashMap::new();
-
                 let event_loop_res = if cfg!(unix) || cfg!(windows) {
                     EventLoop::builder().with_any_thread(true).build()
                 } else {
                     EventLoop::builder().build()
                 };
                 let event_loop = event_loop_res.expect("event loop building");
+
                 ots.send(event_loop.create_proxy().clone()).unwrap();
 
-                #[allow(deprecated)]
-                event_loop.run(move |event, window_target| {
-                    match event {
-                        Event::UserEvent(_) => {
-                            let window_attributes = Window::default_attributes().with_visible(false);
-                            let config_template_builder = ConfigTemplateBuilder::new();
-                            let display_builder =
-                                DisplayBuilder::new().with_window_attributes(Some(window_attributes));
-                            let (window, gl_config) = display_builder
-                                .build(window_target, config_template_builder, |mut configs| {
-                                    // Just use the first configuration since we don't have any special preferences here
-                                    configs.next().unwrap()
-                                })
-                                .unwrap();
+                let mut app = Workaround {
+                    sender,
+                    windows: HashMap::new(),
+                };
 
-                            let window = window.unwrap();
-
-                            let key = window.id();
-                            windows.insert(key, Arc::new(window));
-                            let window = &windows[&key];
-                            let handle_or_window = if is_send_handle(&window) {
-                                window.into()
-                            }
-                            else {
-                                Arc::clone(window).into()
-                            };
-
-                            sender.send((handle_or_window, gl_config)).unwrap();
-                        }
-                        _ => ()
-                    }
-                })
-                .unwrap();
+                event_loop.run_app(&mut app).unwrap();
             })
             .unwrap();
 
