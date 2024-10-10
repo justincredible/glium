@@ -9,13 +9,13 @@ use glium::Display;
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
 
-use glutin::config::{Config, ConfigTemplateBuilder};
-use glutin::context::ContextAttributesBuilder;
+use glutin::config::ConfigTemplateBuilder;
+use glutin::context::{ContextAttributesBuilder, NotCurrentContext};
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
-use glutin::surface::{SurfaceAttributesBuilder, WindowSurface};
+use glutin::surface::{Surface, SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use raw_window_handle::HasWindowHandle;
 use glium::winit::application::ApplicationHandler;
 use glium::winit::event::WindowEvent;
 use glium::winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
@@ -24,11 +24,10 @@ use glium::winit::window::{Window, WindowId};
 use std::collections::HashMap;
 use std::env;
 use std::num::NonZeroU32;
-use std::sync::{Arc, mpsc::Sender, Once, RwLock};
+use std::sync::{mpsc::Sender, Once, RwLock};
 use std::thread;
 
 // The code below here down to `build_display` is a workaround due to a lack of a test initialization hook
-// This sort of design is recommended against for applications
 
 // There is a Wayland version of this extension trait but the X11 version also works on Wayland
 #[cfg(unix)]
@@ -36,68 +35,20 @@ use glium::winit::platform::x11::EventLoopBuilderExtX11;
 #[cfg(windows)]
 use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 
-type SendDisplayPieces = Sender<(HandleOrWindow, Config)>;
-static EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<SendDisplayPieces>>> = RwLock::new(None);
+type UserEvent = Sender<(NotCurrentContext, Surface<WindowSurface>)>;
+static EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<UserEvent>>> = RwLock::new(None);
 static INIT_EVENT_LOOP: Once = Once::new();
 
-#[derive(Debug)]
-enum HandleOrWindow {
-    SendHandle(RawWindowHandle),
-    ArcWindow(Arc<Window>),
-}
-
-impl From<&Arc<Window>> for HandleOrWindow {
-    fn from(window: &Arc<Window>) -> Self {
-        let handle = window.window_handle().unwrap().as_raw();
-
-        match handle {
-            RawWindowHandle::Xlib(_) |
-            RawWindowHandle::Xcb(_) |
-            RawWindowHandle::Drm(_) |
-            RawWindowHandle::Win32(_) |
-            RawWindowHandle::Web(_)
-                => HandleOrWindow::SendHandle(handle),
-            RawWindowHandle::UiKit(_) |
-            RawWindowHandle::AppKit(_) |
-            RawWindowHandle::Orbital(_) |
-            RawWindowHandle::OhosNdk(_) |
-            RawWindowHandle::Wayland(_) |
-            RawWindowHandle::Gbm(_) |
-            RawWindowHandle::WinRt(_) |
-            RawWindowHandle::WebCanvas(_) |
-            RawWindowHandle::WebOffscreenCanvas(_) |
-            RawWindowHandle::AndroidNdk(_) |
-            RawWindowHandle::Haiku(_)
-                => HandleOrWindow::ArcWindow(Arc::clone(window)),
-            // Unknown platforms
-            _ => panic!("Unsupported"),
-        }
-    }
-}
-
-impl From<HandleOrWindow> for RawWindowHandle {
-    fn from(handle: HandleOrWindow) -> Self {
-        match handle {
-            HandleOrWindow::SendHandle(handle) => handle,
-            HandleOrWindow::ArcWindow(window) => window.window_handle().unwrap().as_raw(),
-        }
-    }
-}
-
-// SAFETY
-// requires `From` implementation to be kept in sync with `raw_window_handle` and `winit` crates
-unsafe impl Send for HandleOrWindow {}
-
 struct Workaround {
-    windows: HashMap<WindowId, Arc<Window>>,
+    windows: HashMap<WindowId, Window>,
 }
 
-impl ApplicationHandler<SendDisplayPieces> for Workaround {
+impl ApplicationHandler<UserEvent> for Workaround {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
 
     fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, _event: WindowEvent) {}
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SendDisplayPieces) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
         let window_attributes = Window::default_attributes().with_visible(false);
         let config_template_builder = ConfigTemplateBuilder::new();
         let (window, gl_config) = DisplayBuilder::new()
@@ -109,10 +60,32 @@ impl ApplicationHandler<SendDisplayPieces> for Workaround {
             .unwrap();
         let window = window.unwrap();
         let key = window.id();
+        let raw_window_handle = window.window_handle().unwrap().as_raw();
+        // Keep window alive indefinitely
+        self.windows.insert(key, window);
 
-        self.windows.insert(key, Arc::new(window));
+        // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
+        // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
+        // If you depend on features available in modern OpenGL Versions you need to request a specific, modern, version. Otherwise things will very likely fail.
+        let version = parse_version();
+        let context_attributes = ContextAttributesBuilder::new()
+            .with_context_api(version)
+            .build(Some(raw_window_handle));
 
-        event.send(((&self.windows[&key]).into(), gl_config)).unwrap();
+        let not_current_gl_context = unsafe {
+            gl_config.display().create_context(&gl_config, &context_attributes).unwrap()
+        };
+
+        let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+            raw_window_handle,
+            NonZeroU32::new(800).unwrap(),
+            NonZeroU32::new(600).unwrap(),
+        );
+
+        // Now we can create our surface, use it to make our context current and finally create our display
+        let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
+
+        event.send((not_current_gl_context, surface)).unwrap();
     }
 }
 
@@ -126,9 +99,9 @@ pub fn build_display() -> Display<WindowSurface> {
             .name("event_loop".into())
             .spawn(move || {
                 let event_loop_res = if cfg!(unix) || cfg!(windows) {
-                    EventLoop::<SendDisplayPieces>::with_user_event().with_any_thread(true).build()
+                    EventLoop::<UserEvent>::with_user_event().with_any_thread(true).build()
                 } else {
-                    EventLoop::<SendDisplayPieces>::with_user_event().build()
+                    EventLoop::<UserEvent>::with_user_event().build()
                 };
                 let event_loop = event_loop_res.expect("event loop building");
 
@@ -156,29 +129,8 @@ pub fn build_display() -> Display<WindowSurface> {
         .send_event(sender).unwrap();
 
     // Block until required display building pieces are received
-    let (handle_or_window, gl_config) = receiver.recv().unwrap();
+    let (not_current_gl_context, surface) = receiver.recv().unwrap();
 
-    // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
-    // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
-    // If you depend on features available in modern OpenGL Versions you need to request a specific, modern, version. Otherwise things will very likely fail.
-    let version = parse_version();
-    let raw_window_handle = handle_or_window.into();
-    let context_attributes = ContextAttributesBuilder::new()
-        .with_context_api(version)
-        .build(Some(raw_window_handle));
-
-    let not_current_gl_context = unsafe {
-        gl_config.display().create_context(&gl_config, &context_attributes).unwrap()
-    };
-
-    let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-        raw_window_handle,
-        NonZeroU32::new(800).unwrap(),
-        NonZeroU32::new(600).unwrap(),
-    );
-
-    // Now we can create our surface, use it to make our context current and finally create our display
-    let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
     let current_context = not_current_gl_context.make_current(&surface).unwrap();
 
     Display::from_context_surface(current_context, surface).unwrap()
