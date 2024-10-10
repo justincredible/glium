@@ -24,7 +24,7 @@ use glium::winit::window::{Window, WindowId};
 use std::collections::HashMap;
 use std::env;
 use std::num::NonZeroU32;
-use std::sync::{Arc, mpsc::{Receiver, Sender}, Mutex, Once, RwLock};
+use std::sync::{Arc, mpsc::Sender, Once, RwLock};
 use std::thread;
 
 // The code below here down to `build_display` is a workaround due to a lack of a test initialization hook
@@ -36,10 +36,8 @@ use glium::winit::platform::x11::EventLoopBuilderExtX11;
 #[cfg(windows)]
 use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 
-// Thread communication
-static EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<()>>> = RwLock::new(None);
-static WINDOW_RECEIVER: Mutex<Option<Receiver<(HandleOrWindow, Config)>>> = Mutex::new(None);
-// Initialization
+type SendDisplayPieces = Sender<(HandleOrWindow, Config)>;
+static EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<SendDisplayPieces>>> = RwLock::new(None);
 static INIT_EVENT_LOOP: Once = Once::new();
 
 #[derive(Debug)]
@@ -91,16 +89,15 @@ impl From<HandleOrWindow> for RawWindowHandle {
 unsafe impl Send for HandleOrWindow {}
 
 struct Workaround {
-    sender: Sender<(HandleOrWindow, Config)>,
     windows: HashMap<WindowId, Arc<Window>>,
 }
 
-impl ApplicationHandler<()> for Workaround {
+impl ApplicationHandler<SendDisplayPieces> for Workaround {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
 
     fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, _event: WindowEvent) {}
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, _event: ()) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SendDisplayPieces) {
         let window_attributes = Window::default_attributes().with_visible(false);
         let config_template_builder = ConfigTemplateBuilder::new();
         let (window, gl_config) = DisplayBuilder::new()
@@ -115,7 +112,7 @@ impl ApplicationHandler<()> for Workaround {
 
         self.windows.insert(key, Arc::new(window));
 
-        self.sender.send(((&self.windows[&key]).into(), gl_config)).unwrap();
+        event.send(((&self.windows[&key]).into(), gl_config)).unwrap();
     }
 }
 
@@ -124,23 +121,20 @@ pub fn build_display() -> Display<WindowSurface> {
     INIT_EVENT_LOOP.call_once(|| {
         // One-time-use channel to get the event loop proxy
         let (ots, otr) = std::sync::mpsc::channel();
-        // Transfers window and config for creating display
-        let (sender, receiver) = std::sync::mpsc::channel();
 
-        let builder = thread::Builder::new().name("event_loop".into());
-        builder
+        thread::Builder::new()
+            .name("event_loop".into())
             .spawn(move || {
                 let event_loop_res = if cfg!(unix) || cfg!(windows) {
-                    EventLoop::builder().with_any_thread(true).build()
+                    EventLoop::<SendDisplayPieces>::with_user_event().with_any_thread(true).build()
                 } else {
-                    EventLoop::builder().build()
+                    EventLoop::<SendDisplayPieces>::with_user_event().build()
                 };
                 let event_loop = event_loop_res.expect("event loop building");
 
                 ots.send(event_loop.create_proxy()).unwrap();
 
                 let mut app = Workaround {
-                    sender,
                     windows: HashMap::new(),
                 };
 
@@ -150,23 +144,19 @@ pub fn build_display() -> Display<WindowSurface> {
 
         let event_loop_proxy = otr.recv().unwrap();
 
-        // Write to the thread communication variables while still in `call_once`'s closure
         *EVENT_LOOP_PROXY.write().unwrap() = Some(event_loop_proxy);
-
-        *WINDOW_RECEIVER.lock().unwrap() = Some(receiver);
     });
 
-    // Tell event loop to create a window and config for creating a display
+    let (sender, receiver) = std::sync::mpsc::channel();
+
+    // Tell event loop thread to create a window and config for creating a display
     EVENT_LOOP_PROXY
         .read().unwrap()
         .as_ref().unwrap()
-        .send_event(()).unwrap();
+        .send_event(sender).unwrap();
 
-    // Receive said window and config one thread at a time
-    let (handle_or_window, gl_config) = WINDOW_RECEIVER
-        .lock().unwrap()
-        .as_ref().unwrap()
-        .recv().unwrap();
+    // Block until required display building pieces are received
+    let (handle_or_window, gl_config) = receiver.recv().unwrap();
 
     // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
     // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
