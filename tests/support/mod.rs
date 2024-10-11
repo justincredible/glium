@@ -82,43 +82,45 @@ impl ApplicationHandler<UserEvent> for Workaround {
             NonZeroU32::new(600).unwrap(),
         );
 
-        // Now we can create our surface, use it to make our context current and finally create our display
         let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
 
         event.send((not_current_gl_context, surface)).unwrap();
     }
 }
 
+// Set up event loop thread
+fn init_event_loop() {
+    // One-time-use channel to get the event loop proxy
+    let (ots, otr) = std::sync::mpsc::channel();
+
+    thread::Builder::new()
+        .name("event_loop".into())
+        .spawn(move || {
+            let event_loop_res = if cfg!(unix) || cfg!(windows) {
+                EventLoop::<UserEvent>::with_user_event().with_any_thread(true).build()
+            } else {
+                EventLoop::<UserEvent>::with_user_event().build()
+            };
+            let event_loop = event_loop_res.expect("event loop building");
+
+            ots.send(event_loop.create_proxy()).unwrap();
+
+            let mut app = Workaround {
+                windows: HashMap::new(),
+            };
+
+            event_loop.run_app(&mut app).unwrap();
+        })
+        .unwrap();
+
+    let event_loop_proxy = otr.recv().unwrap();
+
+    *EVENT_LOOP_PROXY.write().unwrap() = Some(event_loop_proxy);
+}
+
 /// Builds a display for tests.
 pub fn build_display() -> Display<WindowSurface> {
-    INIT_EVENT_LOOP.call_once(|| {
-        // One-time-use channel to get the event loop proxy
-        let (ots, otr) = std::sync::mpsc::channel();
-
-        thread::Builder::new()
-            .name("event_loop".into())
-            .spawn(move || {
-                let event_loop_res = if cfg!(unix) || cfg!(windows) {
-                    EventLoop::<UserEvent>::with_user_event().with_any_thread(true).build()
-                } else {
-                    EventLoop::<UserEvent>::with_user_event().build()
-                };
-                let event_loop = event_loop_res.expect("event loop building");
-
-                ots.send(event_loop.create_proxy()).unwrap();
-
-                let mut app = Workaround {
-                    windows: HashMap::new(),
-                };
-
-                event_loop.run_app(&mut app).unwrap();
-            })
-            .unwrap();
-
-        let event_loop_proxy = otr.recv().unwrap();
-
-        *EVENT_LOOP_PROXY.write().unwrap() = Some(event_loop_proxy);
-    });
+    INIT_EVENT_LOOP.call_once(|| { init_event_loop() });
 
     let (sender, receiver) = std::sync::mpsc::channel();
 
@@ -131,6 +133,7 @@ pub fn build_display() -> Display<WindowSurface> {
     // Block until required display building pieces are received
     let (not_current_gl_context, surface) = receiver.recv().unwrap();
 
+    // Now use our surface to make our context current and finally create our display
     let current_context = not_current_gl_context.make_current(&surface).unwrap();
 
     Display::from_context_surface(current_context, surface).unwrap()
