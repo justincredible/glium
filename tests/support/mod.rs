@@ -84,7 +84,8 @@ impl ApplicationHandler<UserEvent> for Workaround {
     }
 }
 
-// Set up event loop thread
+// Set up event loop in its own thread
+// Panics: if called more than once in a process
 fn init_event_loop() {
     // One-time-use channel to get the event loop proxy
     let (ots, otr) = std::sync::mpsc::channel();
@@ -112,6 +113,7 @@ fn init_event_loop() {
     *EVENT_LOOP_PROXY.write().unwrap() = Some(event_loop_proxy);
 }
 
+// Smart pointer to tie window lifetime to display
 pub struct WindowDisplay {
     display: Display<WindowSurface>,
     window: Window,
@@ -137,7 +139,7 @@ pub fn build_display() -> WindowDisplay {
 
     let (sender, receiver) = std::sync::mpsc::channel();
 
-    // Tell event loop thread to create a window and config for creating a display
+    // Request event loop thread to create display building pieces and send them back to us
     EVENT_LOOP_PROXY
         .read().unwrap()
         .as_ref().unwrap()
