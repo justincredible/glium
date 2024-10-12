@@ -6,7 +6,7 @@ Test supports module.
 #![allow(dead_code)]
 
 use glium::Display;
-use glium::backend::Facade;
+use glium::backend::{Context, Facade};
 use glium::index::PrimitiveType;
 
 use glutin::config::ConfigTemplateBuilder;
@@ -21,9 +21,10 @@ use glium::winit::event::WindowEvent;
 use glium::winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
 use glium::winit::window::{Window, WindowId};
 
-use std::collections::HashMap;
 use std::env;
 use std::num::NonZeroU32;
+use std::ops::Deref;
+use std::rc::Rc;
 use std::sync::{mpsc::Sender, Once, RwLock};
 use std::thread;
 
@@ -35,13 +36,11 @@ use glium::winit::platform::x11::EventLoopBuilderExtX11;
 #[cfg(windows)]
 use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 
-type UserEvent = Sender<(NotCurrentContext, Surface<WindowSurface>)>;
+type UserEvent = Sender<(Window, NotCurrentContext, Surface<WindowSurface>)>;
 static EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<UserEvent>>> = RwLock::new(None);
 static INIT_EVENT_LOOP: Once = Once::new();
 
-struct Workaround {
-    windows: HashMap<WindowId, Window>,
-}
+struct Workaround {}
 
 impl ApplicationHandler<UserEvent> for Workaround {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
@@ -59,10 +58,7 @@ impl ApplicationHandler<UserEvent> for Workaround {
             })
             .unwrap();
         let window = window.unwrap();
-        let key = window.id();
         let raw_window_handle = window.window_handle().unwrap().as_raw();
-        // Keep window alive indefinitely
-        self.windows.insert(key, window);
 
         // Then the configuration which decides which OpenGL version we'll end up using, here we just use the default which is currently 3.3 core
         // When this fails we'll try and create an ES context, this is mainly used on mobile devices or various ARM SBC's
@@ -84,7 +80,7 @@ impl ApplicationHandler<UserEvent> for Workaround {
 
         let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
 
-        event.send((not_current_gl_context, surface)).unwrap();
+        event.send((window, not_current_gl_context, surface)).unwrap();
     }
 }
 
@@ -105,9 +101,7 @@ fn init_event_loop() {
 
             ots.send(event_loop.create_proxy()).unwrap();
 
-            let mut app = Workaround {
-                windows: HashMap::new(),
-            };
+            let mut app = Workaround {};
 
             event_loop.run_app(&mut app).unwrap();
         })
@@ -118,8 +112,27 @@ fn init_event_loop() {
     *EVENT_LOOP_PROXY.write().unwrap() = Some(event_loop_proxy);
 }
 
+pub struct WindowDisplay {
+    display: Display<WindowSurface>,
+    window: Window,
+}
+
+impl Deref for WindowDisplay {
+    type Target = Display<WindowSurface>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.display
+    }
+}
+
+impl Facade for WindowDisplay {
+    fn get_context(&self) -> &Rc<Context> {
+        self.display.get_context()
+    }
+}
+
 /// Builds a display for tests.
-pub fn build_display() -> Display<WindowSurface> {
+pub fn build_display() -> WindowDisplay {
     INIT_EVENT_LOOP.call_once(|| { init_event_loop() });
 
     let (sender, receiver) = std::sync::mpsc::channel();
@@ -131,12 +144,15 @@ pub fn build_display() -> Display<WindowSurface> {
         .send_event(sender).unwrap();
 
     // Block until required display building pieces are received
-    let (not_current_gl_context, surface) = receiver.recv().unwrap();
+    let (window, not_current_gl_context, surface) = receiver.recv().unwrap();
 
     // Now use our surface to make our context current and finally create our display
     let current_context = not_current_gl_context.make_current(&surface).unwrap();
 
-    Display::from_context_surface(current_context, surface).unwrap()
+    WindowDisplay {
+        display: Display::from_context_surface(current_context, surface).unwrap(),
+        window
+    }
 }
 
 
