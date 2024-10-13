@@ -36,19 +36,19 @@ use glium::winit::platform::x11::EventLoopBuilderExtX11;
 #[cfg(windows)]
 use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 
-type UserEvent = Sender<(Window, NotCurrentContext, Surface<WindowSurface>)>;
+type DisplayRequest = Sender<(Window, NotCurrentContext, Surface<WindowSurface>)>;
 
 // Initialize event loop in a separate thread and store a proxy
-static EVENT_LOOP_PROXY: LazyLock<EventLoopProxy<UserEvent>> = LazyLock::new(|| {
+static EVENT_LOOP_PROXY: LazyLock<EventLoopProxy<DisplayRequest>> = LazyLock::new(|| {
     let (ots, otr) = std::sync::mpsc::channel();
 
     thread::Builder::new()
         .name("event_loop".into())
         .spawn(move || {
             let event_loop_res = if cfg!(unix) || cfg!(windows) {
-                EventLoop::<UserEvent>::with_user_event().with_any_thread(true).build()
+                EventLoop::<DisplayRequest>::with_user_event().with_any_thread(true).build()
             } else {
-                EventLoop::<UserEvent>::with_user_event().build()
+                EventLoop::<DisplayRequest>::with_user_event().build()
             };
             let event_loop = event_loop_res.expect("event loop building");
 
@@ -64,12 +64,12 @@ static EVENT_LOOP_PROXY: LazyLock<EventLoopProxy<UserEvent>> = LazyLock::new(|| 
 
 struct Tests {}
 
-impl ApplicationHandler<UserEvent> for Tests {
+impl ApplicationHandler<DisplayRequest> for Tests {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
 
     fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, _event: WindowEvent) {}
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: DisplayRequest) {
         let window_attributes = Window::default_attributes().with_visible(false);
         let config_template_builder = ConfigTemplateBuilder::new();
         let (window, gl_config) = DisplayBuilder::new()
