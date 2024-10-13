@@ -37,12 +37,9 @@ use glium::winit::platform::x11::EventLoopBuilderExtX11;
 use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 
 type UserEvent = Sender<(Window, NotCurrentContext, Surface<WindowSurface>)>;
-static EVENT_LOOP_PROXY: LazyLock<EventLoopProxy<UserEvent>> = LazyLock::new(|| init_event_loop());
 
-// Set up event loop in its own thread
-// Panics: if called with an existing event loop
-fn init_event_loop() -> EventLoopProxy<UserEvent> {
-    // One-time-use channel to get the event loop proxy
+// Initialize event loop in a separate thread and store a proxy
+static EVENT_LOOP_PROXY: LazyLock<EventLoopProxy<UserEvent>> = LazyLock::new(|| {
     let (ots, otr) = std::sync::mpsc::channel();
 
     thread::Builder::new()
@@ -63,7 +60,7 @@ fn init_event_loop() -> EventLoopProxy<UserEvent> {
         .unwrap();
 
     otr.recv().unwrap()
-}
+});
 
 struct Tests {}
 
