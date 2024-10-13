@@ -28,6 +28,8 @@ use std::rc::Rc;
 use std::sync::{mpsc::Sender, LazyLock};
 use std::thread;
 
+// The code below here down to `build_display` is a workaround due to a lack of a test initialization hook
+
 // There is a Wayland version of this extension trait but the X11 version also works on Wayland
 #[cfg(unix)]
 use glium::winit::platform::x11::EventLoopBuilderExtX11;
