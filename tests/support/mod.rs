@@ -28,8 +28,6 @@ use std::rc::Rc;
 use std::sync::{mpsc::Sender, LazyLock};
 use std::thread;
 
-// The code below here down to `build_display` is a workaround due to a lack of a test initialization hook
-
 // There is a Wayland version of this extension trait but the X11 version also works on Wayland
 #[cfg(unix)]
 use glium::winit::platform::x11::EventLoopBuilderExtX11;
@@ -38,6 +36,32 @@ use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 
 type UserEvent = Sender<(Window, NotCurrentContext, Surface<WindowSurface>)>;
 static EVENT_LOOP_PROXY: LazyLock<EventLoopProxy<UserEvent>> = LazyLock::new(|| init_event_loop());
+
+// Set up event loop in its own thread
+// Panics: if called with an existing event loop
+fn init_event_loop() -> EventLoopProxy<UserEvent> {
+    // One-time-use channel to get the event loop proxy
+    let (ots, otr) = std::sync::mpsc::channel();
+
+    thread::Builder::new()
+        .name("event_loop".into())
+        .spawn(move || {
+            let event_loop_res = if cfg!(unix) || cfg!(windows) {
+                EventLoop::<UserEvent>::with_user_event().with_any_thread(true).build()
+            } else {
+                EventLoop::<UserEvent>::with_user_event().build()
+            };
+            let event_loop = event_loop_res.expect("event loop building");
+
+            ots.send(event_loop.create_proxy()).unwrap();
+
+            let mut app = Tests {};
+            event_loop.run_app(&mut app).unwrap();
+        })
+        .unwrap();
+
+    otr.recv().unwrap()
+}
 
 struct Tests {}
 
@@ -81,32 +105,6 @@ impl ApplicationHandler<UserEvent> for Tests {
 
         event.send((window, not_current_gl_context, surface)).unwrap();
     }
-}
-
-// Set up event loop in its own thread
-// Panics: if called with an existing event loop
-fn init_event_loop() -> EventLoopProxy<UserEvent> {
-    // One-time-use channel to get the event loop proxy
-    let (ots, otr) = std::sync::mpsc::channel();
-
-    thread::Builder::new()
-        .name("event_loop".into())
-        .spawn(move || {
-            let event_loop_res = if cfg!(unix) || cfg!(windows) {
-                EventLoop::<UserEvent>::with_user_event().with_any_thread(true).build()
-            } else {
-                EventLoop::<UserEvent>::with_user_event().build()
-            };
-            let event_loop = event_loop_res.expect("event loop building");
-
-            ots.send(event_loop.create_proxy()).unwrap();
-
-            let mut app = Tests {};
-            event_loop.run_app(&mut app).unwrap();
-        })
-        .unwrap();
-
-    otr.recv().unwrap()
 }
 
 // Smart pointer to tie window lifetime with display
