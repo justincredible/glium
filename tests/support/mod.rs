@@ -25,7 +25,7 @@ use std::env;
 use std::num::NonZeroU32;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::sync::{mpsc::Sender, Once, RwLock};
+use std::sync::{mpsc::Sender, LazyLock};
 use std::thread;
 
 // The code below here down to `build_display` is a workaround due to a lack of a test initialization hook
@@ -37,8 +37,7 @@ use glium::winit::platform::x11::EventLoopBuilderExtX11;
 use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 
 type UserEvent = Sender<(Window, NotCurrentContext, Surface<WindowSurface>)>;
-static EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<UserEvent>>> = RwLock::new(None);
-static INIT_EVENT_LOOP: Once = Once::new();
+static EVENT_LOOP_PROXY: LazyLock<EventLoopProxy<UserEvent>> = LazyLock::new(|| init_event_loop());
 
 struct Tests {}
 
@@ -86,7 +85,7 @@ impl ApplicationHandler<UserEvent> for Tests {
 
 // Set up event loop in its own thread
 // Panics: if called with an existing event loop
-fn init_event_loop() {
+fn init_event_loop() -> EventLoopProxy<UserEvent> {
     // One-time-use channel to get the event loop proxy
     let (ots, otr) = std::sync::mpsc::channel();
 
@@ -107,9 +106,7 @@ fn init_event_loop() {
         })
         .unwrap();
 
-    let event_loop_proxy = otr.recv().unwrap();
-
-    *EVENT_LOOP_PROXY.write().unwrap() = Some(event_loop_proxy);
+    otr.recv().unwrap()
 }
 
 // Smart pointer to tie window lifetime with display
@@ -134,15 +131,10 @@ impl Facade for WindowDisplay {
 
 /// Builds a display for tests.
 pub fn build_display() -> WindowDisplay {
-    INIT_EVENT_LOOP.call_once(|| { init_event_loop() });
-
     let (sender, receiver) = std::sync::mpsc::channel();
 
     // Request event loop thread to create display building pieces and send them back
-    EVENT_LOOP_PROXY
-        .read().unwrap()
-        .as_ref().unwrap()
-        .send_event(sender).unwrap();
+    EVENT_LOOP_PROXY.send_event(sender).unwrap();
 
     // Block until required display building pieces are received
     let (window, not_current_gl_context, surface) = receiver.recv().unwrap();
