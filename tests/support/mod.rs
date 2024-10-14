@@ -40,7 +40,7 @@ type DisplayRequest = Sender<(Window, NotCurrentContext, Surface<WindowSurface>)
 
 // Initialize event loop in a separate thread and store a proxy
 static EVENT_LOOP_PROXY: LazyLock<EventLoopProxy<DisplayRequest>> = LazyLock::new(|| {
-    let (ots, otr) = std::sync::mpsc::channel();
+    let (sender, receiver) = std::sync::mpsc::channel();
 
     thread::Builder::new()
         .name("event_loop".into())
@@ -52,14 +52,14 @@ static EVENT_LOOP_PROXY: LazyLock<EventLoopProxy<DisplayRequest>> = LazyLock::ne
             };
             let event_loop = event_loop_res.expect("event loop building");
 
-            ots.send(event_loop.create_proxy()).unwrap();
+            sender.send(event_loop.create_proxy()).unwrap();
 
             let mut app = Tests {};
             event_loop.run_app(&mut app).unwrap();
         })
         .unwrap();
 
-    otr.recv().unwrap()
+    receiver.recv().unwrap()
 });
 
 struct Tests {}
