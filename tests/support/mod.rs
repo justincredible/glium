@@ -46,9 +46,9 @@ static EVENT_LOOP_PROXY: LazyLock<EventLoopProxy<DisplayRequest>> = LazyLock::ne
         .name("event_loop".into())
         .spawn(move || {
             let event_loop_res = if cfg!(unix) || cfg!(windows) {
-                EventLoop::<DisplayRequest>::with_user_event().with_any_thread(true).build()
+                EventLoop::with_user_event().with_any_thread(true).build()
             } else {
-                EventLoop::<DisplayRequest>::with_user_event().build()
+                EventLoop::with_user_event().build()
             };
             let event_loop = event_loop_res.expect("event loop building");
 
@@ -69,7 +69,7 @@ impl ApplicationHandler<DisplayRequest> for Tests {
 
     fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, _event: WindowEvent) {}
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: DisplayRequest) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, request: DisplayRequest) {
         let window_attributes = Window::default_attributes().with_visible(false);
         let config_template_builder = ConfigTemplateBuilder::new();
         let (window, gl_config) = DisplayBuilder::new()
@@ -102,11 +102,10 @@ impl ApplicationHandler<DisplayRequest> for Tests {
 
         let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
 
-        event.send((window, not_current_gl_context, surface)).unwrap();
+        request.send((window, not_current_gl_context, surface)).unwrap();
     }
 }
 
-// Smart pointer to tie window lifetime with display
 pub struct WindowDisplay {
     display: Display<WindowSurface>,
     window: Window,
@@ -130,7 +129,7 @@ impl Facade for WindowDisplay {
 pub fn build_display() -> WindowDisplay {
     let (sender, receiver) = std::sync::mpsc::channel();
 
-    // Request event loop thread to create display building pieces and send them back
+    // Request event loop create display building pieces and send them back
     EVENT_LOOP_PROXY.send_event(sender).unwrap();
 
     // Block until required display building pieces are received
