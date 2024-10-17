@@ -9,51 +9,96 @@ fn main() {
     let event_loop = glium::winit::event_loop::EventLoop::builder()
         .build()
         .expect("event loop building");
-    let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
-        .with_title("Glium tutorial #7")
-        .build(&event_loop);
 
-    let positions = glium::VertexBuffer::new(&display, &teapot::VERTICES).unwrap();
-    let normals = glium::VertexBuffer::new(&display, &teapot::NORMALS).unwrap();
-    let indices = glium::IndexBuffer::new(&display, glium::index::PrimitiveType::TrianglesList,
-                                        &teapot::INDICES).unwrap();
+    let mut app = Tutorials { tutorial: None };
+    event_loop.run_app(&mut app).unwrap();
+}
 
-    let vertex_shader_src = r#"
-        #version 140
+use glium::Display;
+use glium::index::IndexBuffer;
+use glium::program::Program;
+use glium::vertex::VertexBuffer;
+use glutin::surface::WindowSurface;
+use winit::application::ApplicationHandler;
+use winit::{event::WindowEvent, event_loop::ActiveEventLoop};
+use winit::window::{Window, WindowId};
 
-        in vec3 position;
-        in vec3 normal;
+struct Tutorials {
+    tutorial: Option<Tutorial>,
+}
 
-        uniform mat4 matrix;
+struct Tutorial {
+    display: Display<WindowSurface>,
+    program: Program,
+    positions: VertexBuffer<teapot::Vertex>,
+    normals: VertexBuffer<teapot::Normal>,
+    indices: IndexBuffer<u16>,
+    window: Window,
+}
 
-        void main() {
-            gl_Position = matrix * vec4(position, 1.0);
-        }
-    "#;
+impl ApplicationHandler<()> for Tutorials {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.tutorial.is_none() {
+            let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
+                .with_title("Glium tutorial #7")
+                .build(event_loop);
 
-    let fragment_shader_src = r#"
-        #version 140
+            let positions = glium::VertexBuffer::new(&display, &teapot::VERTICES).unwrap();
+            let normals = glium::VertexBuffer::new(&display, &teapot::NORMALS).unwrap();
+            let indices = glium::IndexBuffer::new(&display, glium::index::PrimitiveType::TrianglesList,
+                                                &teapot::INDICES).unwrap();
 
-        out vec4 color;
+            let vertex_shader_src = r#"
+                #version 140
 
-        void main() {
-            color = vec4(1.0, 0.0, 0.0, 1.0);
-        }
-    "#;
+                in vec3 position;
+                in vec3 normal;
 
-    let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src,
-                                            None).unwrap();
+                uniform mat4 matrix;
 
-    #[allow(deprecated)]
-    event_loop.run(move |ev, window_target| {
-        match ev {
-            glium::winit::event::Event::WindowEvent { event, .. } => match event {
-                glium::winit::event::WindowEvent::CloseRequested => {
-                    window_target.exit();
-                },
-                // We now need to render everyting in response to a RedrawRequested event due to the animation
-                glium::winit::event::WindowEvent::RedrawRequested => {
-                    let mut target = display.draw();
+                void main() {
+                    gl_Position = matrix * vec4(position, 1.0);
+                }
+            "#;
+
+            let fragment_shader_src = r#"
+                #version 140
+
+                out vec4 color;
+
+                void main() {
+                    color = vec4(1.0, 0.0, 0.0, 1.0);
+                }
+            "#;
+
+            let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src,
+                                                    None).unwrap();
+
+           self.tutorial = Some(Tutorial {
+                display,
+                program,
+                positions,
+                normals,
+                indices,
+                window,
+            });
+       }
+    }
+
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {
+        // Now we wait until the program is closed
+        match event {
+            // This event is sent by the OS when you close the Window, or request the program to quit via the taskbar.
+            WindowEvent::CloseRequested => event_loop.exit(),
+            // Because glium doesn't know about windows we need to resize the display
+            // when the window's size has changed.
+            WindowEvent::Resized(window_size) => {
+                self.tutorial.as_ref().expect("Set during resumed").display.resize(window_size.into());
+            },
+            // We now need to render everything in response to a RedrawRequested event due to the animation
+            WindowEvent::RedrawRequested => {
+                if let Some(tutorial) = self.tutorial.as_mut() {
+                    let mut target = tutorial.display.draw();
                     target.clear_color(0.0, 0.0, 1.0, 1.0);
 
                     let matrix = [
@@ -63,24 +108,19 @@ fn main() {
                         [0.0, 0.0, 0.0, 1.0f32]
                     ];
 
-                    target.draw((&positions, &normals), &indices, &program, &uniform! { matrix: matrix },
+                    target.draw((&tutorial.positions, &tutorial.normals), &tutorial.indices, &tutorial.program, &uniform! { matrix: matrix },
                                 &Default::default()).unwrap();
                     target.finish().unwrap();
-                },
-                // Because glium doesn't know about windows we need to resize the display
-                // when the window's size has changed.
-                glium::winit::event::WindowEvent::Resized(window_size) => {
-                    display.resize(window_size.into());
-                },
-                _ => (),
+                }
             },
-            // By requesting a redraw in response to a AboutToWait event we get continuous rendering.
-            // For applications that only change due to user input you could remove this handler.
-            glium::winit::event::Event::AboutToWait => {
-                window.request_redraw();
-            },
-            _ => (),
+            _ => ()
         }
-    })
-    .unwrap();
+    }
+
+    // By requesting a redraw in response to a RedrawEventsCleared event we get continuous rendering.
+    // For applications that only change due to user input you could remove this handler.
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        self.tutorial.as_ref().expect("Set during resumed").window.request_redraw();
+    }
 }
+
