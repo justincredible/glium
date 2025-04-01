@@ -64,7 +64,6 @@ fn create_program(b: &mut Bencher) {
 }
 
 #[bench]
-#[ignore]       // TODO: segfaults
 fn draw_triangle(b: &mut Bencher) {
     let display = support::build_context();
 
@@ -116,7 +115,7 @@ fn draw_triangle(b: &mut Bencher) {
     ).unwrap();
 
     b.iter(|| {
-        let mut target = glium::Frame::new(display.clone(), (800, 600));
+        let mut target = glium::Frame::new(display.clone(), (0, 0));
         target.clear_color(0.0, 0.0, 0.0, 1.0);
         target.draw(&vertex_buffer, &glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList),
                     &program, &uniform!{}, &Default::default()).unwrap();
