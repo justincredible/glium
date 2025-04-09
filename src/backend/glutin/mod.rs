@@ -184,6 +184,35 @@ impl<T: SurfaceTypeTrait + ResizeableSurface> Display<T> {
         })
     }
 
+    /// Rebuilds the display.
+    pub fn rebuild(
+	&self,
+	version: glutin::context::ContextApi,
+	config: glutin::config::Config,
+	surface: glutin::surface::Surface<T>,
+	handle: Option<raw_window_handle::RawWindowHandle>,
+    ) -> Result<(), DisplayCreationError> {
+
+	let context_attributes = glutin::context::ContextAttributesBuilder::new()
+            .with_context_api(version)
+	    .with_sharing(&**self.gl_context.borrow().as_ref().expect("Display has a previous context."))
+            .build(handle);
+
+	let not_current_context = unsafe {
+            config.display().create_context(&config, &context_attributes).unwrap()
+	};
+
+	let context = not_current_context.make_current(&surface).unwrap();
+
+	let old_csp = self.gl_context.borrow_mut().replace(ContextSurfacePair::new(context, surface));
+
+	// Rebuild the Context.
+	let backend = GlutinBackend(self.gl_context.clone());
+	unsafe { self.context.rebuild(backend) }?;
+
+	Ok(())
+    }
+
     /// Resize the underlying surface.
     #[inline]
     pub fn resize(&self, new_size: (u32, u32)) {

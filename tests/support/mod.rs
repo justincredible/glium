@@ -204,8 +204,29 @@ pub fn build_display() -> Display<WindowSurface> {
 ///
 /// In real applications this is used for things such as switching to fullscreen. Some things are
 /// invalidated during a rebuild, and this has to be handled by glium.
-pub fn rebuild_display(_display: &glium::Display<WindowSurface>) {
-    todo!();
+pub fn rebuild_display(display: &glium::Display<WindowSurface>) {
+    EVENT_LOOP_PROXY
+        .read().unwrap()
+        .as_ref().unwrap()
+        .send_event(()).unwrap();
+
+    let (handle_or_window, gl_config) =
+        WINDOW_RECEIVER
+            .lock().unwrap()
+            .as_ref().unwrap()
+            .recv().unwrap();
+
+    let version = parse_version();
+    let raw_window_handle = handle_or_window.into();
+    let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+        raw_window_handle,
+        NonZeroU32::new(800).unwrap(),
+        NonZeroU32::new(600).unwrap(),
+    );
+
+    let surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
+
+    display.rebuild(version, gl_config, surface, Some(raw_window_handle)).unwrap();
     /*
     let version = parse_version();
     let event_loop = glium::winit::event_loop::EventLoop::new();
