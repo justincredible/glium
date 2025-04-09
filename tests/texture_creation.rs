@@ -322,7 +322,7 @@ fn bindless_texture_residency_context_rebuild() {
 
     let program = glium::Program::from_source(&display,
         "
-            #version 100
+            #version 400
 
             attribute lowp vec2 position;
 
