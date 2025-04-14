@@ -16,12 +16,14 @@ use crate::backend::Backend;
 use crate::backend::Context;
 use crate::context;
 use crate::debug;
-use crate::glutin::context::PossiblyCurrentContext;
+use crate::glutin::config::GetGlConfig;
+use crate::glutin::context::{ContextAttributesBuilder, PossiblyCurrentContext};
 use crate::glutin::display::GetGlDisplay;
 use crate::glutin::prelude::*;
-use crate::glutin::surface::{ResizeableSurface, SurfaceTypeTrait};
+use crate::glutin::surface::{ResizeableSurface, SurfaceAttributesBuilder, SurfaceTypeTrait, WindowSurface};
 use crate::SwapBuffersError;
 use crate::{Frame, IncompatibleOpenGl};
+use raw_window_handle::RawWindowHandle;
 use std::cell::RefCell;
 use std::error::Error;
 use std::ffi::CString;
@@ -182,6 +184,54 @@ impl<T: SurfaceTypeTrait + ResizeableSurface> Display<T> {
             gl_context: gl_window,
             context,
         })
+    }
+
+    /// Rebuilds the Display's `ContextSurfacePair` with the given `ContextAttributesBuilder` and
+    /// optional `RawWindowHandle`.
+    ///
+    /// This method ensures that the new `glutin::Context` will share the display lists of the
+    /// original.
+    /// The presence of a `RawWindowHandle` will result in a new `glutin::Surface` but it is
+    /// also required to create a WGL context.
+    pub fn rebuild(
+	&self,
+	context_attributes_builder: ContextAttributesBuilder,
+	raw_window_handle: Option<RawWindowHandle>,
+    ) -> Result<(), DisplayCreationError> {
+	// The existing context is taken and must be restored or replaced before the function exits
+	let ContextSurfacePair { context: old_context, surface: old_surface } =
+	    self.gl_context.take().expect("a valid display must have a backing context");
+
+	// It's recommended to use the same `Config` for shared contexts
+	let config = old_context.config();
+	let context_attributes = context_attributes_builder.with_sharing(&old_context).build(raw_window_handle);
+
+	let not_current_context = unsafe {
+	    config.display().create_context(&config, &context_attributes).unwrap()
+	};
+
+	let width = old_surface.width().unwrap();
+	let height = old_surface.height().unwrap();
+	let surface = raw_window_handle.map_or(old_surface, |raw_window_handle| {
+	    let surface_attributes = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+		raw_window_handle,
+		NonZeroU32::new(width).unwrap(),
+		NonZeroU32::new(height).unwrap(),
+	    );
+
+	    unsafe {
+		std::mem::transmute(config.display().create_window_surface(&config, &surface_attributes).unwrap())
+	    }
+	});
+
+	let context = not_current_context.make_current(&surface).unwrap();
+
+	let _ = self.gl_context.replace(Some(ContextSurfacePair { context: context, surface: surface }));
+
+	let backend = GlutinBackend(self.gl_context.clone());
+	unsafe { self.context.rebuild(backend)? }
+
+	Ok(())
     }
 
     /// Resize the underlying surface.
