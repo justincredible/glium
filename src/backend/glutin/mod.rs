@@ -16,12 +16,14 @@ use crate::backend::Backend;
 use crate::backend::Context;
 use crate::context;
 use crate::debug;
-use crate::glutin::context::PossiblyCurrentContext;
+use crate::glutin::config::GetGlConfig;
+use crate::glutin::context::{ContextAttributesBuilder, PossiblyCurrentContext};
 use crate::glutin::display::GetGlDisplay;
 use crate::glutin::prelude::*;
 use crate::glutin::surface::{ResizeableSurface, SurfaceTypeTrait};
 use crate::SwapBuffersError;
 use crate::{Frame, IncompatibleOpenGl};
+use raw_window_handle::RawWindowHandle;
 use std::cell::RefCell;
 use std::error::Error;
 use std::ffi::CString;
@@ -182,6 +184,57 @@ impl<T: SurfaceTypeTrait + ResizeableSurface> Display<T> {
             gl_context: gl_window,
             context,
         })
+    }
+
+    /// Rebuilds the Display's `ContextSurfacePair` with the given `ContextAttributesBuilder` and
+    /// optional `Surface`.
+    ///
+    /// This method ensures that the new `glutin::Context` will share the display lists of the
+    /// original.
+    /// The presence of a `RawWindowHandle` is required for a WGL context.
+    pub fn rebuild(
+	&self,
+	context_attributes_builder: ContextAttributesBuilder,
+	new_surface: Option<Surface<T>>,
+	raw_window_handle: Option<RawWindowHandle>,
+    ) -> Result<(), DisplayCreationError> {
+	let not_current_context = {
+	    let borrow = self.gl_context.borrow();
+	    let context = &**borrow.as_ref().expect("display is valid");
+
+	    // glutin recommends using the same `Config` for shared contexts
+	    let config = context.config();
+	    let context_attributes = context_attributes_builder
+		.with_sharing(context)
+		.build(raw_window_handle);
+
+	    unsafe {
+		config.display()
+		    .create_context(&config, &context_attributes)
+		    .map_err(|e| { DisplayCreationError::GlutinError(e) })?
+	    }
+	};
+
+	let ContextSurfacePair { context, surface } = self
+	    .gl_context
+	    .take()
+	    .expect("a valid display must have a backing context");
+
+	let result = not_current_context.make_current(new_surface.as_ref().unwrap_or(&surface));
+	// restore the previous pair in case of error result
+	let _ = self.gl_context.replace(Some(ContextSurfacePair { context, surface }));
+
+	let context = result.map_err(|e| { DisplayCreationError::GlutinError(e) })?;
+	let surface = new_surface.unwrap_or_else(|| {
+	    self.gl_context.take().expect("previous context and surface were restored").surface
+	});
+
+	let _ = self.gl_context.replace(Some(ContextSurfacePair { context, surface }));
+
+	let backend = GlutinBackend(self.gl_context.clone());
+	unsafe { self.context.rebuild(backend)? }
+
+	Ok(())
     }
 
     /// Resize the underlying surface.
