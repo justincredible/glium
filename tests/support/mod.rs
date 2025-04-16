@@ -21,6 +21,7 @@ use glium::winit::event::WindowEvent;
 use glium::winit::event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy};
 use glium::winit::window::{Window, WindowId};
 
+use std::cell::Cell;
 use std::env;
 use std::num::NonZeroU32;
 use std::ops::Deref;
@@ -28,7 +29,7 @@ use std::rc::Rc;
 use std::sync::{mpsc::Sender, Once, RwLock};
 use std::thread;
 
-// The code below here down to `build_display` is a workaround due to a lack of a test initialization hook
+// The code below here down to `rebuild_display` is a workaround due to a lack of a test initialization hook
 
 // There is a Wayland version of this extension trait but the X11 version also works on Wayland
 #[cfg(unix)]
@@ -37,6 +38,7 @@ use glium::winit::platform::x11::EventLoopBuilderExtX11;
 use glium::winit::platform::windows::EventLoopBuilderExtWindows;
 
 type DisplayRequest = Sender<(Window, NotCurrentContext, Surface<WindowSurface>)>;
+static EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<DisplayRequest>>> = RwLock::new(None);
 
 struct Tests {}
 
@@ -84,7 +86,7 @@ impl ApplicationHandler<DisplayRequest> for Tests {
 
 pub struct WindowDisplay {
     display: Display<WindowSurface>,
-    window: Window,
+    window: Cell<Window>,
 }
 
 impl Deref for WindowDisplay {
@@ -103,7 +105,6 @@ impl Facade for WindowDisplay {
 
 /// Builds a display for tests.
 pub fn build_display() -> WindowDisplay {
-    static EVENT_LOOP_PROXY: RwLock<Option<EventLoopProxy<DisplayRequest>>> = RwLock::new(None);
     static INIT_EVENT_LOOP: Once = Once::new();
 
     // Initialize event loop in a separate thread and store a proxy
@@ -146,7 +147,7 @@ pub fn build_display() -> WindowDisplay {
 
     WindowDisplay {
         display: Display::from_context_surface(current_context, surface).unwrap(),
-        window
+        window: Cell::new(window),
     }
 }
 
@@ -155,17 +156,22 @@ pub fn build_display() -> WindowDisplay {
 ///
 /// In real applications this is used for things such as switching to fullscreen. Some things are
 /// invalidated during a rebuild, and this has to be handled by glium.
-pub fn rebuild_display(_display: &glium::Display<WindowSurface>) {
-    todo!();
-    /*
-    let version = parse_version();
-    let event_loop = glium::winit::event_loop::EventLoop::new();
-    let wb = glium::winit::window::WindowBuilder::new().with_visible(false);
-    let cb = glutin::ContextBuilder::new()
-        .with_gl_debug_flag(true)
-        .with_gl(version);
-    display.rebuild(wb, cb, &event_loop).unwrap();
-     */
+pub fn rebuild_display(display: &WindowDisplay) {
+    let (sender, receiver) = std::sync::mpsc::channel();
+
+    EVENT_LOOP_PROXY
+        .read().unwrap()
+        .as_ref().expect("this function is called after build_display")
+        .send_event(sender).unwrap();
+
+    let (window, _, surface) = receiver.recv().unwrap();
+
+    display.rebuild(
+        ContextAttributesBuilder::new(),
+        Some(surface),
+        window.window_handle().map(|h| h.as_raw()).ok(),
+    ).unwrap();
+    display.window.replace(window);
 }
 
 fn parse_version() -> glutin::context::ContextApi {
