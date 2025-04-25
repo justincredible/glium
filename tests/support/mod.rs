@@ -28,7 +28,7 @@ use std::rc::Rc;
 use std::sync::{mpsc::Sender, Once, RwLock};
 use std::thread;
 
-// The code below here down to `build_display` is a workaround due to a lack of a test initialization hook
+// The code below here down to `rebuild_display` is a workaround due to a lack of a test initialization hook
 
 // There is a Wayland version of this extension trait but the X11 version also works on Wayland
 #[cfg(unix)]
@@ -155,17 +155,33 @@ pub fn build_display() -> WindowDisplay {
 ///
 /// In real applications this is used for things such as switching to fullscreen. Some things are
 /// invalidated during a rebuild, and this has to be handled by glium.
-pub fn rebuild_display(_display: &glium::Display<WindowSurface>) {
-    todo!();
-    /*
+pub fn rebuild_display(display: &glium::Display<WindowSurface>) {
+    EVENT_LOOP_PROXY
+        .read().unwrap()
+        .as_ref().unwrap()
+        .send_event(()).unwrap();
+
+    let (handle_or_window, gl_config) =
+        WINDOW_RECEIVER
+            .lock().unwrap()
+            .as_ref().unwrap()
+            .recv().unwrap();
+
     let version = parse_version();
-    let event_loop = glium::winit::event_loop::EventLoop::new();
-    let wb = glium::winit::window::WindowBuilder::new().with_visible(false);
-    let cb = glutin::ContextBuilder::new()
-        .with_gl_debug_flag(true)
-        .with_gl(version);
-    display.rebuild(wb, cb, &event_loop).unwrap();
-     */
+    let context_attributes = ContextAttributesBuilder::new().with_context_api(version);
+    let raw_window_handle = handle_or_window.into();
+
+    let surface_attributes = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+        raw_window_handle,
+        NonZeroU32::new(800).unwrap(),
+        NonZeroU32::new(600).unwrap(),
+    );
+
+    let surface = unsafe {
+        gl_config.display().create_window_surface(&gl_config, &surface_attributes).unwrap()
+    };
+
+    display.rebuild(context_attributes, Some(surface), Some(raw_window_handle)).unwrap();
 }
 
 fn parse_version() -> glutin::context::ContextApi {
