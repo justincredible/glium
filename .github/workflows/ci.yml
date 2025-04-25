@@ -58,6 +58,16 @@ jobs:
         RUST_BACKTRACE: 1
         RUSTFLAGS: -D warnings
       run: cargo test --all --all-targets
+    - name: Compile the benchmarks
+      if: (matrix.toolchain == 'nightly')
+      env:
+        RUSTFLAGS: -D warnings
+      run: cargo bench --features unstable --no-run
+    - name: Run the benchmarks
+      if: (matrix.toolchain == 'nightly')
+      env:
+        RUSTFLAGS: -D warnings
+      run: cargo bench --features unstable
     - name: Run cargo doc
       env:
         RUSTFLAGS: -D warnings
