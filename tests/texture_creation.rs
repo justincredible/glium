@@ -310,7 +310,7 @@ fn bindless_texture_residency_context_rebuild() {
 
     let texture = match texture.resident() {
         Ok(t) => t,
-        Err(_) => return
+        Err(_) => panic!("bindless textures not supported"),
     };
 
     // here is the trick: we rebuild the display, meaning that texture residency has to be updated
