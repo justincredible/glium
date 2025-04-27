@@ -36,6 +36,11 @@ jobs:
         sudo apt-get update
         sudo apt-get install libxkbcommon-x11-0
         sudo apt-get install xvfb
+        echo "\n\nEnd of setup\n\n"
+        glxinfo
+        echo "\n\nEnd of glxinfo\n\n"
+        apt list | grep x11
+        echo "\n\nEnd of apt-list\n\n"
     - name: Run the tests (X11)
       if: (matrix.os == 'ubuntu-latest')
       env:
@@ -52,12 +57,19 @@ jobs:
             x64\libgallium_wgl.dll `
             x64\dxil.dll `
             x64\d3d10warp.dll
+        7z e mesa.7z -otarget\debug\examples x64\*.dll
     - name: Run the tests (Windows)
       if: (matrix.os == 'windows-latest')
       env:
         RUST_BACKTRACE: 1
         RUSTFLAGS: -D warnings
       run: cargo test --all --all-targets
+    - name: Run the info example (X11)
+      if: (matrix.os == 'ubuntu-latest')
+      run: xvfb-run cargo run --example info
+    - name: Run the info example (Windows)
+      if: (matrix.os == 'windows-latest')
+      run: cargo run --example info
     - name: Compile the benchmarks
       if: (matrix.toolchain == 'nightly')
       env:
