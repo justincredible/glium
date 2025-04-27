@@ -55,7 +55,7 @@ fn transform_feedback() {
 
     let program = match glium::Program::new(&display, source) {
         Ok(p) => p,
-        Err(glium::program::ProgramCreationError::TransformFeedbackNotSupported) => return,
+        Err(glium::program::ProgramCreationError::TransformFeedbackNotSupported) => panic!("unsupported"),
         Err(e) => panic!("{:?}", e)
     };
 
@@ -77,7 +77,7 @@ fn transform_feedback() {
 
     let result = match out_buffer.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 

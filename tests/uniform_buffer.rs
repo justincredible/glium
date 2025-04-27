@@ -19,7 +19,7 @@ fn uniform_buffer_mapping_read() {
     let display = support::build_display();
 
     let mut vb = match glium::uniforms::UniformBuffer::new(&display, 12) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 
@@ -34,7 +34,7 @@ fn uniform_buffer_mapping_write() {
     let display = support::build_display();
 
     let mut vb = match glium::uniforms::UniformBuffer::new(&display, 6) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 
@@ -54,13 +54,13 @@ fn uniform_buffer_read() {
     let display = support::build_display();
 
     let vb = match glium::uniforms::UniformBuffer::new(&display, 12) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 
     let data = match vb.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -74,7 +74,7 @@ fn uniform_buffer_write() {
     let display = support::build_display();
 
     let vb = match glium::uniforms::UniformBuffer::new(&display, 5) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 
@@ -82,7 +82,7 @@ fn uniform_buffer_write() {
 
     let data = match vb.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -124,7 +124,7 @@ fn block() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     #[derive(Copy, Clone)]
@@ -135,7 +135,7 @@ fn block() {
     implement_uniform_block!(Data, color);
 
     let buffer = match glium::uniforms::UniformBuffer::new(&display, Data { color: (1.0f32, 1.0f32, 0.0f32) }) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 
@@ -190,11 +190,11 @@ fn block_wrong_type() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let buffer = match glium::uniforms::UniformBuffer::new(&display, 2) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 
@@ -221,7 +221,7 @@ fn buffer_write() {
     let display = support::build_display();
 
     let mut buf = match glium::uniforms::UniformBuffer::new(&display, (5, 3)) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 
@@ -269,7 +269,7 @@ fn persistent_block_race_condition() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     #[derive(Copy, Clone)]
@@ -280,7 +280,7 @@ fn persistent_block_race_condition() {
     implement_uniform_block!(Data, color);
 
     let mut buffer = match glium::uniforms::UniformBuffer::new(&display, Data { color: (0.5f32, 0.5f32, 0.5f32) }) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 
@@ -331,7 +331,7 @@ fn empty_uniform_buffer() {
     let display = support::build_display();
 
     let _ = match glium::uniforms::UniformBuffer::new(&display, ()) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 

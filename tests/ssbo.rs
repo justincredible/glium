@@ -41,7 +41,7 @@ fn basic() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     #[derive(Copy, Clone)]
@@ -52,7 +52,7 @@ fn basic() {
     implement_uniform_block!(Data, color);
 
     let buffer = match glium::uniforms::UniformBuffer::new(&display, Data { color: (0.0f32, 0.0f32, 0.0f32) }) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 
@@ -106,7 +106,7 @@ fn custom_bind_point() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     #[derive(Copy, Clone)]
@@ -117,7 +117,7 @@ fn custom_bind_point() {
     implement_uniform_block!(Data, color);
 
     let buffer = match glium::uniforms::UniformBuffer::new(&display, Data { color: (0.0f32, 0.0f32, 0.0f32) }) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 

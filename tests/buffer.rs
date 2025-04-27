@@ -254,7 +254,7 @@ fn buffer_immutable_read() {
 
     let data = match vb.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -285,7 +285,7 @@ fn buffer_dynamic_read() {
 
     let data = match vb.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -316,7 +316,7 @@ fn buffer_immutable_read_slice() {
 
     let data = match vb.slice(1 .. 2).unwrap().read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -346,7 +346,7 @@ fn buffer_dynamic_read_slice() {
 
     let data = match vb.slice(1 .. 2).unwrap().read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -405,7 +405,7 @@ fn buffer_immutable_write() {
 
     let data = match vb.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -443,7 +443,7 @@ fn buffer_dynamic_write() {
 
     let data = match vb.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -478,7 +478,7 @@ fn buffer_immutable_write_slice() {
 
     let data = match vb.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -513,7 +513,7 @@ fn buffer_dynamic_write_slice() {
 
     let data = match vb.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -632,7 +632,7 @@ fn immutable_mapping_forget_then_read() {
 
     let data = match buf.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -796,7 +796,7 @@ fn persistent_mapping_forget_then_read() {
 
     let data = match buf.read() {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -941,7 +941,7 @@ fn copy_to() {
 
     let result = match buf2.read() {
         Ok(r) => r,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     assert_eq!(result, [1, 2, 3]);
@@ -969,7 +969,7 @@ fn copy_to_slice() {
 
     let result = match buf2.read() {
         Ok(r) => r,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     assert_eq!(result, [0, 1, 2]);

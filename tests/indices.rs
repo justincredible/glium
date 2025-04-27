@@ -177,7 +177,7 @@ fn get_indices_type_u32() {
                                           &[0u32, 1, 2, 3]);
 
     let indices = match indices {
-        Err(glium::index::BufferCreationError::IndexTypeNotSupported) => return,
+        Err(glium::index::BufferCreationError::IndexTypeNotSupported) => panic!("unsupported"),
         Ok(i) => i,
         e => e.unwrap()
     };
@@ -342,7 +342,7 @@ fn multidraw_array() {
     let multidraw = glium::index::DrawCommandsNoIndicesBuffer::empty(&display, 1);
     let multidraw = match multidraw {
         Ok(buf) => buf,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     multidraw.write(&[
@@ -385,7 +385,7 @@ fn multidraw_elements() {
     let multidraw = glium::index::DrawCommandsIndicesBuffer::empty(&display, 1);
     let multidraw = match multidraw {
         Ok(buf) => buf,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     multidraw.write(&[

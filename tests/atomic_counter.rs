@@ -38,12 +38,12 @@ fn basic() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let buffer = match glium::buffer::Buffer::new(&display, &10u32, glium::buffer::BufferType::AtomicCounterBuffer,
                                                   glium::buffer::BufferMode::Default) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(b) => b
     };
 

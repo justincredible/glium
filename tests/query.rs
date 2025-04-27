@@ -10,7 +10,7 @@ fn query_sequence() {
     let display = support::build_display();
 
     let query = match glium::draw_parameters::SamplesPassedQuery::new(&display) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(q) => q
     };
 
@@ -40,7 +40,7 @@ fn samples_passed() {
     let display = support::build_display();
 
     let query = match glium::draw_parameters::SamplesPassedQuery::new(&display) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(q) => q
     };
 
@@ -70,7 +70,7 @@ fn any_samples_passed() {
     let display = support::build_display();
 
     let query = match glium::draw_parameters::AnySamplesPassedQuery::new(&display, false) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(q) => q
     };
 
@@ -102,7 +102,7 @@ fn any_samples_passed_conservative() {
     let display = support::build_display();
 
     let query = match glium::draw_parameters::AnySamplesPassedQuery::new(&display, true) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(q) => q
     };
 
@@ -134,7 +134,7 @@ fn time_elapsed() {
     let display = support::build_display();
 
     let query = match glium::draw_parameters::TimeElapsedQuery::new(&display) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(q) => q
     };
 
@@ -165,7 +165,7 @@ fn primitives_generated() {
     let display = support::build_display();
 
     let query = match glium::draw_parameters::PrimitivesGeneratedQuery::new(&display) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(q) => q
     };
 
@@ -200,7 +200,7 @@ fn conditional_render_nodraw() {
     let display = support::build_display();
 
     let query = match glium::draw_parameters::AnySamplesPassedQuery::new(&display, false) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(q) => q
     };
 
@@ -243,7 +243,7 @@ fn conditional_render_simultaneous_query() {
     let display = support::build_display();
 
     let query = match glium::draw_parameters::AnySamplesPassedQuery::new(&display, false) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(q) => q
     };
 
@@ -278,7 +278,7 @@ fn query_to_buffer() {
     let display = support::build_display();
 
     let query = match glium::draw_parameters::SamplesPassedQuery::new(&display) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(q) => q
     };
 

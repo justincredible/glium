@@ -28,7 +28,7 @@ fn texture_2d_read_pixelbuffer() {
                                                              .read_as_texture_2d()
     {
         Ok(r) => r,
-        Err(glium::buffer::ReadError::NotSupported) => return,
+        Err(glium::buffer::ReadError::NotSupported) => panic!("unsupported"),
         e => e.unwrap()
     };
 
@@ -47,7 +47,7 @@ macro_rules! read_texture_test {
             let display = support::build_display();
 
             let texture = match glium::texture::$tex_ty::new(&display, $data) {
-                Err(_) => return,       // TODO: make sure that the error is "NotSupported"
+                Err(_) => panic!("unsupported"),       // TODO: make sure that the error is "NotSupported"
                 Ok(t) => t
             };
 

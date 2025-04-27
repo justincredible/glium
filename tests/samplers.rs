@@ -70,7 +70,7 @@ fn magnify_nearest_filtering() {
 
     match output.as_surface().draw(&vb, &ib, &program, &uniforms, &Default::default()) {
         Ok(_) => (),
-        Err(glium::DrawError::SamplersNotSupported) => return,
+        Err(glium::DrawError::SamplersNotSupported) => panic!("unsupported"),
         Err(e) => panic!("{:?}", e)
     };
 

@@ -14,7 +14,7 @@ fn empty() {
     let texture = BufferTexture::empty(&display, 32, BufferTextureType::Float);
     let texture: BufferTexture<(u8, u8, u8, u8)> = match texture {
         Ok(t) => t,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     display.assert_no_error(None);
@@ -30,7 +30,7 @@ fn sample() {
     let buf_tex = BufferTexture::new(&display, data, BufferTextureType::Float);
     let buf_tex: BufferTexture<(u8, u8, u8, u8)> = match buf_tex {
         Ok(t) => t,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let (vb, ib) = support::build_rectangle_vb_ib(&display);
@@ -57,7 +57,7 @@ fn sample() {
         None);
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let output = support::build_renderable_texture(&display);
@@ -83,7 +83,7 @@ fn wrong_type() {
     let buf_tex = BufferTexture::new(&display, data, BufferTextureType::Float);
     let buf_tex: BufferTexture<(u8, u8, u8, u8)> = match buf_tex {
         Ok(t) => t,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let (vb, ib) = support::build_rectangle_vb_ib(&display);
@@ -110,7 +110,7 @@ fn wrong_type() {
         None);
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let mut frame = display.draw();

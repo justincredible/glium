@@ -32,7 +32,7 @@ macro_rules! create_program {
 
             match program {
                 Ok(p) => p,
-                Err(_) => return
+                Err(_) => panic!("unsupported")
             }
         }
     );

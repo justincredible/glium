@@ -374,7 +374,7 @@ fn attributes_marker() {
         ",
         None) {
         Ok(p) => p,
-        _ => return
+        _ => panic!("unsupported")
     };
 
     let texture = support::build_renderable_texture(&display);
@@ -425,7 +425,7 @@ fn attributes_marker_indices() {
         ",
         None) {
         Ok(p) => p,
-        _ => return
+        _ => panic!("unsupported")
     };
 
     let indices = glium::index::IndexBuffer::new(&display, PrimitiveType::TriangleStrip,
@@ -489,7 +489,7 @@ fn instancing() {
 
     let buffer2 = match buffer2.per_instance() {
         Ok(b) => b,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let index_buffer = glium::IndexBuffer::new(&display, PrimitiveType::TriangleStrip,
@@ -526,7 +526,7 @@ fn instancing() {
         ",
         None) {
         Ok(p) => p,
-        _ => return
+        _ => panic!("unsupported")
     };
 
     let texture = support::build_renderable_texture(&display);
@@ -586,7 +586,7 @@ fn per_instance_length_mismatch() {
 
     let buffer2 = match buffer2.per_instance() {
         Ok(b) => b,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let buffer3 = {
@@ -608,7 +608,7 @@ fn per_instance_length_mismatch() {
 
     let buffer3 = match buffer3.per_instance() {
         Ok(b) => b,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let index_buffer = glium::IndexBuffer::new(&display, PrimitiveType::TriangleStrip,

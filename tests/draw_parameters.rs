@@ -232,7 +232,7 @@ fn dont_draw_primitives() {
     texture.as_surface().clear_color(0.0, 1.0, 0.0, 0.0);
     match texture.as_surface().draw(&vb, &ib, &program, &glium::uniforms::EmptyUniforms, &params) {
         Ok(_) => (),
-        Err(glium::DrawError::RasterizerDiscardNotSupported) => return,
+        Err(glium::DrawError::RasterizerDiscardNotSupported) => panic!("unsupported"),
         e => e.unwrap()
     }
 
@@ -261,7 +261,7 @@ fn dont_draw_primitives_then_draw() {
     texture.as_surface().clear_color(0.0, 1.0, 0.0, 0.0);
     match texture.as_surface().draw(&vb, &ib, &program, &glium::uniforms::EmptyUniforms, &params) {
         Ok(_) => (),
-        Err(glium::DrawError::RasterizerDiscardNotSupported) => return,
+        Err(glium::DrawError::RasterizerDiscardNotSupported) => panic!("unsupported"),
         e => e.unwrap()
     }
     texture.as_surface().draw(&vb, &ib, &program, &glium::uniforms::EmptyUniforms, &Default::default()).unwrap();
@@ -812,7 +812,7 @@ fn provoking_vertex_last() {
             }
         ", None);
     let program = match program {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(p) => p
     };
 
@@ -878,7 +878,7 @@ fn provoking_vertex_first() {
             }
         ", None);
     let program = match program {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(p) => p
     };
 

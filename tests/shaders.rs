@@ -145,7 +145,7 @@ fn get_frag_data_location() {
     // ignoring test in case of compilation error (version 1.30 may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     assert!(program.get_frag_data_location("color").is_some());
@@ -185,7 +185,7 @@ fn get_uniform_blocks() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let blocks = program.get_uniform_blocks();
@@ -261,7 +261,7 @@ fn get_program_binary() {
         None).unwrap();
 
     let binary = match program.get_binary() {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(bin) => bin
     };
 
@@ -301,7 +301,7 @@ fn program_binary_reload() {
         None).unwrap();
 
     let binary = match program.get_binary() {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(bin) => bin
     };
 
@@ -335,7 +335,7 @@ fn program_binary_working() {
         None).unwrap();
 
     let binary = match program_src.get_binary() {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(bin) => bin
     };
 
@@ -397,7 +397,7 @@ fn get_transform_feedback_varyings() {
 
     let program = match glium::Program::new(&display, source) {
         Ok(p) => p,
-        Err(glium::program::ProgramCreationError::TransformFeedbackNotSupported) => return,
+        Err(glium::program::ProgramCreationError::TransformFeedbackNotSupported) => panic!("unsupported"),
         Err(e) => panic!("{:?}", e)
     };
 
@@ -454,7 +454,7 @@ fn get_output_primitives_simple() {
     // ignoring test in case of compilation error
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     assert!(program.get_output_primitives().is_none());
@@ -494,7 +494,7 @@ fn ssbos() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let blocks = program.get_shader_storage_blocks();
@@ -578,7 +578,7 @@ fn complex_layout() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let blocks = program.get_uniform_blocks();
@@ -725,7 +725,7 @@ fn unsized_array() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let blocks = program.get_shader_storage_blocks();
@@ -822,7 +822,7 @@ fn array_layout_offsets() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let blocks = program.get_uniform_blocks();

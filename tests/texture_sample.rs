@@ -81,7 +81,7 @@ fn bindless_texture() {
 
     let texture = match texture.resident() {
         Ok(t) => t,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     // if bindless textures are supported, we can call .unwrap() and expect that everything

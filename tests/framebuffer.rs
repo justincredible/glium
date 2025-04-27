@@ -154,7 +154,7 @@ fn depth_texture2d() {
     let depth_data = iter::repeat(iter::repeat(0.5f32).take(128).collect::<Vec<_>>())
                                   .take(128).collect::<Vec<_>>();
     let depth = match glium::texture::DepthTexture2d::new(&display, depth_data) {
-        Err(_) => return,
+        Err(_) => panic!("unsupported"),
         Ok(t) => t
     };
 
@@ -209,7 +209,7 @@ fn multioutput() {
         ",
         None)
     {
-        Err(glium::CompilationError(..)) => return,
+        Err(glium::CompilationError(..)) => panic!("unsupported"),
         Ok(p) => p,
         e => e.unwrap()
     };
@@ -260,7 +260,7 @@ fn array_level() {
 
     let texture = match glium::texture::Texture2dArray::empty(&display, 128, 128, 4) {
         Ok(t) => t,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let mut framebuffer = glium::framebuffer::SimpleFrameBuffer::new(&display,
@@ -288,7 +288,7 @@ fn cubemap_layer() {
 
     let texture = match glium::texture::Cubemap::empty(&display, 128) {
         Ok(t) => t,
-        Err(_) => return
+        Err(_) => panic!("unsupported")
     };
 
     let mut framebuffer = glium::framebuffer::SimpleFrameBuffer::new(&display,
