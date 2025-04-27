@@ -38,7 +38,7 @@ jobs:
         sudo apt-get install xvfb
         sudo apt-get install mesa-utils
         echo "\n\nEnd of setup\n\n"
-        glxinfo
+        xvfb-run glxinfo
         echo "\n\nEnd of glxinfo\n\n"
         apt list | grep x11
         echo "\n\nEnd of apt-list\n\n"
