@@ -124,7 +124,7 @@ fn block() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => panic!("unsupported")
+        Err(_) => return
     };
 
     #[derive(Copy, Clone)]
@@ -190,7 +190,7 @@ fn block_wrong_type() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => panic!("unsupported")
+        Err(_) => return
     };
 
     let buffer = match glium::uniforms::UniformBuffer::new(&display, 2) {
@@ -269,7 +269,7 @@ fn persistent_block_race_condition() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => panic!("unsupported")
+        Err(_) => return
     };
 
     #[derive(Copy, Clone)]

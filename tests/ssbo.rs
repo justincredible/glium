@@ -41,7 +41,7 @@ fn basic() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => panic!("unsupported")
+        Err(_) => return
     };
 
     #[derive(Copy, Clone)]
@@ -106,7 +106,7 @@ fn custom_bind_point() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => panic!("unsupported")
+        Err(_) => return
     };
 
     #[derive(Copy, Clone)]

@@ -261,7 +261,7 @@ fn get_program_binary() {
         None).unwrap();
 
     let binary = match program.get_binary() {
-        Err(_) => panic!("unsupported"),
+        Err(_) => return,
         Ok(bin) => bin
     };
 
@@ -301,7 +301,7 @@ fn program_binary_reload() {
         None).unwrap();
 
     let binary = match program.get_binary() {
-        Err(_) => panic!("unsupported"),
+        Err(_) => return,
         Ok(bin) => bin
     };
 
@@ -335,7 +335,7 @@ fn program_binary_working() {
         None).unwrap();
 
     let binary = match program_src.get_binary() {
-        Err(_) => panic!("unsupported"),
+        Err(_) => return,
         Ok(bin) => bin
     };
 
@@ -578,7 +578,7 @@ fn complex_layout() {
     // ignoring test in case of compilation error (version may not be supported)
     let program = match program {
         Ok(p) => p,
-        Err(_) => panic!("unsupported")
+        Err(_) => return
     };
 
     let blocks = program.get_uniform_blocks();

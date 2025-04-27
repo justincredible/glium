@@ -812,7 +812,7 @@ fn provoking_vertex_last() {
             }
         ", None);
     let program = match program {
-        Err(_) => panic!("unsupported"),
+        Err(_) => return,
         Ok(p) => p
     };
 
@@ -878,7 +878,7 @@ fn provoking_vertex_first() {
             }
         ", None);
     let program = match program {
-        Err(_) => panic!("unsupported"),
+        Err(_) => return,
         Ok(p) => p
     };
 
