@@ -89,7 +89,7 @@ fn bindless_texture() {
 
     let program = glium::Program::from_source(&display,
         "
-            #version 100
+            #version 400
 
             attribute lowp vec2 position;
 
