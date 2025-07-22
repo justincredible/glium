@@ -237,28 +237,9 @@ macro_rules! impl_for_tuple {
         }
     );
 
-    ($t1:ident, $t2:ident) => (
-        #[allow(non_snake_case)]
-        impl<'a, $t1, $t2> MultiVerticesSource<'a> for ($t1, $t2)
-            where $t1: Into<VerticesSource<'a>>, $t2: Into<VerticesSource<'a>>
-        {
-            type Iterator = Chain<<($t1,) as MultiVerticesSource<'a>>::Iterator,
-                                  <($t2,) as MultiVerticesSource<'a>>::Iterator>;
-
-            #[inline]
-            fn iter(self) -> Chain<<($t1,) as MultiVerticesSource<'a>>::Iterator,
-                                   <($t2,) as MultiVerticesSource<'a>>::Iterator>
-            {
-                let ($t1, $t2) = self;
-                Some($t1.into()).into_iter().chain(($t2,).iter())
-            }
-        }
-
-        impl_for_tuple!($t2);
-    );
-
     ($t1:ident, $($t2:ident),+) => (
         #[allow(non_snake_case)]
+        #[allow(unused_parens)]
         impl<'a, $t1, $($t2),+> MultiVerticesSource<'a> for ($t1, $($t2),+)
             where $t1: Into<VerticesSource<'a>>, $($t2: Into<VerticesSource<'a>>),+
         {
