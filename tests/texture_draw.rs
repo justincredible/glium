@@ -59,52 +59,38 @@ macro_rules! draw_and_validate {
     );
 }
 
-macro_rules! texture_draw_test {
-    ($test_name:ident, $tex_ty:ident, [$($dims:expr),+], $glsl_ty:expr, $glsl_value:expr,
-     $rust_value:expr) => (
-        #[test]
-        fn $test_name() {
-            let display = support::build_display();
-            let (vb, ib) = support::build_rectangle_vb_ib(&display);
+#[test]
+fn texture_2d_draw() {
+    let display = support::build_display();
+    let (vb, ib) = support::build_rectangle_vb_ib(&display);
 
-            let program = create_program!(display, $glsl_ty, $glsl_value);
+    let program = create_program!(display, "vec4", "vec4(1.0, 0.0, 1.0, 0.0)");
 
-            let texture = glium::texture::$tex_ty::empty(&display, $($dims),+).unwrap();
+    let texture = glium::texture::Texture2d::empty(&display, 1024, 1024).unwrap();
 
-            draw_and_validate!(display, program, texture, vb, ib, $rust_value);
-        }
-    );
+    draw_and_validate!(display, program, texture, vb, ib, (255, 0, 255, 0));
 }
 
-macro_rules! unowned_draw_test {
-    ($test_name:ident, $tex_ty:ident, $format_ty:ident, $format_value:ident, [$($dims:expr),+], $glsl_ty:expr, $glsl_value:expr,
-     $rust_value:expr) => (
-        #[test]
-        fn $test_name() {
-            let display = support::build_display();
-            let (vb, ib) = support::build_rectangle_vb_ib(&display);
+#[test]
+fn texture_2d_draw_unowned() {
+    let display = support::build_display();
+    let (vb, ib) = support::build_rectangle_vb_ib(&display);
 
-            let program = create_program!(display, $glsl_ty, $glsl_value);
+    let program = create_program!(display, "vec4", "vec4(1.0, 0.0, 1.0, 0.0)");
 
-            let empty_texture = glium::texture::$tex_ty::empty_with_format(&display,
-                                                                           glium::texture::$format_ty::$format_value,
-                                                                           glium::texture::MipmapsOption::NoMipmap,
-                                                                           $($dims),+).unwrap();
-            let texture = unsafe {
-                glium::texture::$tex_ty::from_id(&display,
-                                                 glium::texture::$format_ty::$format_value,
-                                                 empty_texture.get_id(),
-                                                 false,
-                                                 glium::texture::MipmapsOption::NoMipmap,
-                                                 empty_texture.get_texture_type())
-            };
+    let empty_texture = glium::texture::Texture2d::empty_with_format(&display,
+                                                                   glium::texture::UncompressedFloatFormat::F32F32F32F32,
+                                                                   glium::texture::MipmapsOption::NoMipmap,
+                                                                   1024, 1024).unwrap();
+    let texture = unsafe {
+        glium::texture::Texture2d::from_id(&display,
+                                         glium::texture::UncompressedFloatFormat::F32F32F32F32,
+                                         empty_texture.get_id(),
+                                         false,
+                                         glium::texture::MipmapsOption::NoMipmap,
+                                         empty_texture.get_texture_type())
+    };
 
-            draw_and_validate!(display, program, texture, vb, ib, $rust_value);
-        }
-    );
+    draw_and_validate!(display, program, texture, vb, ib, (255, 0, 255, 0));
 }
 
-texture_draw_test!(texture_2d_draw, Texture2d, [1024, 1024], "vec4",
-                   "vec4(1.0, 0.0, 1.0, 0.0)", (255, 0, 255, 0));
-unowned_draw_test!(texture_2d_draw_unowned, Texture2d, UncompressedFloatFormat, F32F32F32F32, [1024, 1024], "vec4",
-                   "vec4(1.0, 0.0, 1.0, 0.0)", (255, 0, 255, 0));
